@@ -1,0 +1,229 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta
+        name="viewport"
+        content="width=device-width, initial-scale=1.0"
+    >
+    <title>MassachusettsWx Models</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+
+<body>
+
+<header class="site-header">
+    <div class="brand-block">
+        <h1>MassachusettsWx Models</h1>
+
+        <div class="header-meta">
+            <span id="modelText">WeatherNext 2</span>
+            <span class="dot">•</span>
+            <span id="cycleText">Loading latest cycle...</span>
+
+            <span
+                id="availabilityBadge"
+                class="availability-badge loading"
+            >
+                Loading
+            </span>
+        </div>
+    </div>
+</header>
+
+
+<main>
+
+    <section class="toolbar">
+
+        <div class="control-group">
+            <label for="modelSelect">
+                Model
+            </label>
+
+            <select id="modelSelect">
+                <option value="weathernext2_mean">
+                    WeatherNext 2
+                </option>
+
+                <option value="gfs">
+                    NCEP GFS
+                </option>
+
+                <option value="ifs">
+                    ECMWF IFS
+                </option>
+
+                <option value="aifs">
+                    ECMWF AIFS
+                </option>
+            </select>
+        </div>
+
+
+        <div class="control-group">
+            <label for="regionSelect">
+                Region
+            </label>
+
+            <select id="regionSelect">
+            </select>
+        </div>
+
+
+        <div class="control-group product-control">
+            <label for="productSelect">
+                Product
+            </label>
+
+            <select id="productSelect">
+            </select>
+        </div>
+
+
+        <div class="control-group">
+            <label for="speedSelect">
+                Animation
+            </label>
+
+            <select id="speedSelect">
+                <option value="1200">
+                    Slow
+                </option>
+
+                <option
+                    value="800"
+                    selected
+                >
+                    Normal
+                </option>
+
+                <option value="450">
+                    Fast
+                </option>
+            </select>
+        </div>
+
+    </section>
+
+
+    <section class="viewer-layout">
+
+        <div class="viewer-main">
+
+            <section class="viewer-topbar">
+
+                <div class="nav-buttons">
+
+                    <button
+                        id="prevButton"
+                        type="button"
+                        title="Previous forecast hour"
+                    >
+                        ◀ Previous
+                    </button>
+
+                    <button
+                        id="playButton"
+                        type="button"
+                        title="Play / pause animation"
+                    >
+                        ▶ Play
+                    </button>
+
+                    <button
+                        id="nextButton"
+                        type="button"
+                        title="Next forecast hour"
+                    >
+                        Next ▶
+                    </button>
+
+                </div>
+
+
+                <div class="frame-meta">
+                    <span id="productText">
+                        —
+                    </span>
+
+                    <span class="dot">•</span>
+
+                    <span id="hourText">
+                        —
+                    </span>
+                </div>
+
+            </section>
+
+
+            <section class="map-wrapper">
+
+                <div
+                    id="loadingText"
+                    class="loading"
+                >
+                    Loading map...
+                </div>
+
+                <img
+                    id="mapImage"
+                    alt="Weather model forecast map"
+                >
+
+            </section>
+
+
+            <section class="viewer-footer">
+
+                <span>
+                    Keyboard:
+                    <strong>←</strong>
+                    previous,
+                    <strong>→</strong>
+                    next,
+                    <strong>Space</strong>
+                    play/pause
+                </span>
+
+                <span id="frameCounter">
+                    —
+                </span>
+
+            </section>
+
+        </div>
+
+
+        <aside class="forecast-sidebar">
+
+            <div class="forecast-sidebar-header">
+                <div class="sidebar-label">
+                    Forecast Hour
+                </div>
+
+                <div
+                    id="selectedHourText"
+                    class="selected-hour"
+                >
+                    —
+                </div>
+            </div>
+
+            <div
+                id="hourGrid"
+                class="hour-grid"
+            >
+            </div>
+
+        </aside>
+
+    </section>
+
+</main>
+
+
+<script src="app.js"></script>
+
+</body>
+</html>

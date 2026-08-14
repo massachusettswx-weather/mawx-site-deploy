@@ -1,0 +1,426 @@
+* {
+    box-sizing: border-box;
+}
+
+:root {
+    color-scheme: dark;
+
+    --bg: #0d1117;
+    --panel: #161b22;
+    --panel-2: #1b2129;
+    --border: #30363d;
+    --text: #f0f3f6;
+    --muted: #9da7b3;
+    --accent: #58a6ff;
+    --button: #21262d;
+    --button-hover: #30363d;
+
+    --good-bg: rgba(46, 160, 67, 0.16);
+    --good-border: rgba(63, 185, 80, 0.42);
+    --good-text: #7ee787;
+
+    --warn-bg: rgba(210, 153, 34, 0.16);
+    --warn-border: rgba(210, 153, 34, 0.42);
+    --warn-text: #e3b341;
+
+    --bad-bg: rgba(248, 81, 73, 0.14);
+    --bad-border: rgba(248, 81, 73, 0.40);
+    --bad-text: #ff7b72;
+
+    --hour-loaded: #2b547c;
+    --hour-selected: #6657a2;
+    --hour-unavailable: #111827;
+}
+
+html,
+body {
+    margin: 0;
+    min-height: 100%;
+    background: var(--bg);
+    color: var(--text);
+    font-family:
+        Inter,
+        ui-sans-serif,
+        system-ui,
+        -apple-system,
+        BlinkMacSystemFont,
+        "Segoe UI",
+        sans-serif;
+}
+
+body {
+    min-height: 100vh;
+}
+
+.site-header {
+    background: var(--panel);
+    border-bottom: 1px solid var(--border);
+    padding: 14px 22px;
+}
+
+.brand-block {
+    max-width: 1780px;
+    margin: 0 auto;
+}
+
+.site-header h1 {
+    margin: 0;
+    font-size: 25px;
+    font-weight: 750;
+    letter-spacing: -0.02em;
+}
+
+.header-meta {
+    margin-top: 4px;
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 6px;
+    color: var(--muted);
+    font-size: 13px;
+}
+
+.dot {
+    color: #66707c;
+}
+
+.availability-badge {
+    display: inline-flex;
+    align-items: center;
+    min-height: 21px;
+    padding: 2px 8px;
+    margin-left: 4px;
+    border-radius: 999px;
+    border: 1px solid var(--border);
+    background: var(--panel-2);
+    color: var(--muted);
+    font-size: 11px;
+    font-weight: 700;
+}
+
+.availability-badge.ready {
+    border-color: var(--good-border);
+    background: var(--good-bg);
+    color: var(--good-text);
+}
+
+.availability-badge.loading {
+    border-color: var(--warn-border);
+    background: var(--warn-bg);
+    color: var(--warn-text);
+}
+
+.availability-badge.unavailable {
+    border-color: var(--bad-border);
+    background: var(--bad-bg);
+    color: var(--bad-text);
+}
+
+main {
+    width: min(1820px, 100%);
+    margin: 0 auto;
+    padding: 14px 18px 28px;
+}
+
+.toolbar {
+    display: grid;
+    grid-template-columns:
+        minmax(170px, 0.85fr)
+        minmax(170px, 0.85fr)
+        minmax(300px, 1.8fr)
+        minmax(150px, 0.7fr);
+    gap: 10px;
+    align-items: end;
+    margin-bottom: 12px;
+}
+
+.control-group {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+    min-width: 0;
+}
+
+.control-group label,
+.sidebar-label {
+    color: var(--muted);
+    font-size: 12px;
+    font-weight: 700;
+}
+
+select {
+    width: 100%;
+    min-width: 0;
+    background: var(--panel);
+    color: var(--text);
+    border: 1px solid #3b434d;
+    border-radius: 6px;
+    padding: 9px 10px;
+    font-size: 14px;
+    outline: none;
+}
+
+select:focus {
+    border-color: var(--accent);
+}
+
+select:disabled {
+    opacity: 0.55;
+    cursor: not-allowed;
+}
+
+.viewer-layout {
+    display: grid;
+    grid-template-columns:
+        minmax(0, 1fr)
+        280px;
+    gap: 12px;
+    align-items: start;
+}
+
+.viewer-main {
+    min-width: 0;
+}
+
+.viewer-topbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 14px;
+    margin-bottom: 10px;
+}
+
+.nav-buttons {
+    display: flex;
+    gap: 8px;
+}
+
+button {
+    background: var(--button);
+    color: var(--text);
+    border: 1px solid #3b434d;
+    border-radius: 6px;
+    padding: 8px 13px;
+    font-size: 14px;
+    font-weight: 650;
+    cursor: pointer;
+}
+
+button:hover:not(:disabled) {
+    background: var(--button-hover);
+    border-color: #505a66;
+}
+
+button:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+}
+
+.frame-meta {
+    color: var(--muted);
+    font-size: 13px;
+    text-align: right;
+}
+
+#productText {
+    color: var(--text);
+    font-weight: 650;
+}
+
+.map-wrapper {
+    position: relative;
+    width: 100%;
+    min-height: 420px;
+    overflow: hidden;
+    background: #ffffff;
+    border: 1px solid var(--border);
+    border-radius: 7px;
+}
+
+#mapImage {
+    display: block;
+    width: 100%;
+    height: auto;
+    min-height: 260px;
+    object-fit: contain;
+    background: #ffffff;
+}
+
+/*
+ * Map loading overlay.
+ *
+ * IMPORTANT:
+ * This deliberately targets only #loadingText.
+ * Do not change this back to .loading because the
+ * availability badge also uses the "loading" class.
+ */
+#loadingText {
+    position: absolute;
+    inset: 0;
+    z-index: 5;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 28px;
+    text-align: center;
+    background: rgba(255, 255, 255, 0.94);
+    color: #20242a;
+    font-size: 16px;
+    font-weight: 650;
+}
+
+.viewer-footer {
+    display: flex;
+    justify-content: space-between;
+    gap: 12px;
+    margin-top: 8px;
+    color: var(--muted);
+    font-size: 12px;
+}
+
+.viewer-footer strong {
+    color: var(--text);
+}
+
+.forecast-sidebar {
+    position: sticky;
+    top: 12px;
+    max-height: calc(100vh - 28px);
+    overflow-y: auto;
+    padding: 12px;
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 7px;
+}
+
+.forecast-sidebar-header {
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: 8px;
+    margin-bottom: 10px;
+}
+
+.selected-hour {
+    color: var(--text);
+    font-size: 15px;
+    font-weight: 800;
+}
+
+.hour-grid {
+    display: grid;
+    grid-template-columns:
+        repeat(3, minmax(0, 1fr));
+    gap: 7px;
+}
+
+.hour-button {
+    min-width: 0;
+    padding: 9px 5px;
+    border-radius: 6px;
+    border: 1px solid #52606e;
+    background: var(--hour-loaded);
+    color: #ffffff;
+    font-size: 14px;
+    font-weight: 800;
+    font-variant-numeric: tabular-nums;
+}
+
+.hour-button:hover:not(:disabled) {
+    background: #35658f;
+}
+
+.hour-button.selected {
+    background: var(--hour-selected);
+    border-color: #9182db;
+}
+
+.hour-button.unavailable {
+    background: var(--hour-unavailable);
+    color: #707c91;
+    border-color: #4a5568;
+}
+
+.hour-button:disabled {
+    opacity: 1;
+}
+
+@media (max-width: 1150px) {
+
+    .viewer-layout {
+        grid-template-columns: 1fr;
+    }
+
+    .forecast-sidebar {
+        position: static;
+        max-height: none;
+    }
+
+    .hour-grid {
+        grid-template-columns:
+            repeat(8, minmax(0, 1fr));
+    }
+}
+
+@media (max-width: 800px) {
+
+    .toolbar {
+        grid-template-columns:
+            repeat(2, minmax(0, 1fr));
+    }
+
+    .product-control {
+        grid-column: span 2;
+    }
+
+    .hour-grid {
+        grid-template-columns:
+            repeat(6, minmax(0, 1fr));
+    }
+}
+
+@media (max-width: 600px) {
+
+    .site-header {
+        padding: 12px 14px;
+    }
+
+    .site-header h1 {
+        font-size: 21px;
+    }
+
+    main {
+        padding: 10px;
+    }
+
+    .toolbar {
+        grid-template-columns: 1fr;
+    }
+
+    .product-control {
+        grid-column: auto;
+    }
+
+    .viewer-topbar {
+        align-items: stretch;
+        flex-direction: column;
+    }
+
+    .nav-buttons {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+    }
+
+    .frame-meta {
+        text-align: left;
+    }
+
+    .viewer-footer {
+        flex-direction: column;
+    }
+
+    .hour-grid {
+        grid-template-columns:
+            repeat(4, minmax(0, 1fr));
+    }
+}

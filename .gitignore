@@ -1,0 +1,31 @@
+# Python cache
+__pycache__/
+*.py[cod]
+
+# Backup files
+*.before_*
+
+# Environment / secrets
+.env
+.env.*
+*.key
+*.pem
+credentials.json
+service-account*.json
+
+# Model/data output
+output/
+output_multi/
+data/
+cache/
+*.grib
+*.grib2
+*.grb
+*.grb2
+*.nc
+*.zarr
+
+# OS/editor junk
+.DS_Store
+.vscode/
+.idea/
