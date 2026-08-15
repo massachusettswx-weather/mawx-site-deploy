@@ -1,0 +1,606 @@
+from .download import (
+    download_aifs_hour,
+)
+
+from shared.runner import (
+    run_forecast_hour,
+    OPERATIONAL_REGIONS,
+    get_default_products_for_model,
+    get_sequence_products_for_model,
+    get_download_products_for_model,
+)
+
+from shared.sequence import (
+    SequenceStreamProcessor,
+)
+
+from shared.resume import (
+    get_remaining_forecast_hours,
+)
+
+from shared.storage import (
+    build_local_output_cycle_dir,
+    check_working_disk_space,
+    delete_local,
+    remove_empty_directories,
+    upload_forecast_hour_outputs,
+)
+
+
+# ============================================================
+# SETTINGS
+# ============================================================
+
+OVERWRITE_EXISTING = False
+
+MIN_FREE_DISK_GB = 3.0
+
+
+# ============================================================
+# AIFS FORECAST RANGE
+#
+# AIFS runs every 6 hours through f360.
+# ============================================================
+
+FORECAST_HOURS = list(
+    range(
+        0,
+        361,
+        6,
+    )
+)
+
+
+# ============================================================
+# CYCLE IDENTITY
+# ============================================================
+
+def get_cycle_identity(
+    cycle,
+):
+
+    if cycle is None:
+
+        return {
+            "name": "latest",
+            "date": "latest",
+            "hour": 0,
+        }
+
+    return {
+        "name": cycle[
+            "id"
+        ],
+
+        "date": str(
+            cycle[
+                "date"
+            ]
+        ),
+
+        "hour": int(
+            cycle[
+                "hour"
+            ]
+        ),
+    }
+
+
+# ============================================================
+# AIFS STREAMING PIPELINE
+# ============================================================
+
+def run_aifs(
+    cycle=None,
+):
+
+    print()
+    print("=" * 70)
+
+    print(
+        "MASSACHUSETTSWX "
+        "ECMWF AIFS "
+        "STREAMING PIPELINE"
+    )
+
+    print("=" * 70)
+
+    identity = (
+        get_cycle_identity(
+            cycle
+        )
+    )
+
+    all_forecast_hours = list(
+        FORECAST_HOURS
+    )
+
+    if identity["date"] != "latest":
+
+        forecast_hours = (
+            get_remaining_forecast_hours(
+                model="aifs",
+                cycle_date=(
+                    identity["date"]
+                ),
+                cycle_hour=(
+                    identity["hour"]
+                ),
+                forecast_hours=(
+                    all_forecast_hours
+                ),
+            )
+        )
+
+    else:
+
+        forecast_hours = (
+            all_forecast_hours
+        )
+
+    instantaneous_products = (
+        get_default_products_for_model(
+            "aifs"
+        )
+    )
+
+    sequence_products = (
+        get_sequence_products_for_model(
+            "aifs"
+        )
+    )
+
+    download_products = (
+        get_download_products_for_model(
+            "aifs"
+        )
+    )
+
+    cycle_output_dir = (
+        build_local_output_cycle_dir(
+            model="aifs",
+
+            cycle_date=(
+                identity[
+                    "date"
+                ]
+            ),
+
+            cycle_hour=(
+                identity[
+                    "hour"
+                ]
+            ),
+        )
+    )
+
+    cycle_output_dir.mkdir(
+        parents=True,
+        exist_ok=True,
+    )
+
+    print(
+        f"Cycle: "
+        f"{identity['name']}"
+    )
+
+    print(
+        f"Forecast hours: "
+        f"{len(all_forecast_hours)}"
+    )
+
+    print(
+        f"First: "
+        f"f{FORECAST_HOURS[0]:03d}"
+    )
+
+    print(
+        f"Last: "
+        f"f{FORECAST_HOURS[-1]:03d}"
+    )
+
+    print(
+        f"Instantaneous products: "
+        f"{len(instantaneous_products)}"
+    )
+
+    print(
+        f"Sequence products: "
+        f"{len(sequence_products)}"
+    )
+
+    print(
+        f"Raw download products: "
+        f"{len(download_products)}"
+    )
+
+    print(
+        f"Regions: "
+        f"{len(OPERATIONAL_REGIONS)}"
+    )
+
+    print(
+        f"Temporary output: "
+        f"{cycle_output_dir}"
+    )
+
+    print("=" * 70)
+
+    sequence_processor = (
+        SequenceStreamProcessor(
+            model="aifs",
+
+            output_dir=(
+                cycle_output_dir
+            ),
+
+            regions=(
+                OPERATIONAL_REGIONS
+            ),
+
+            overwrite=(
+                OVERWRITE_EXISTING
+            ),
+        )
+    )
+
+    result = {
+        "created": 0,
+        "skipped": 0,
+        "failed": 0,
+
+        "forecast_hours_expected": (
+            len(
+                all_forecast_hours
+            )
+        ),
+
+        "forecast_hours_downloaded": 0,
+        "forecast_hours_processed": 0,
+
+        "cloud_uploaded": 0,
+        "cloud_upload_failed": 0,
+        "local_png_removed": 0,
+
+        "first_forecast_hour": (
+            all_forecast_hours[
+                0
+            ]
+        ),
+
+        "last_forecast_hour": (
+            all_forecast_hours[
+                -1
+            ]
+        ),
+    }
+
+    try:
+
+        for (
+            index,
+            forecast_hour,
+        ) in enumerate(
+            forecast_hours,
+            start=1,
+        ):
+
+            print()
+            print("=" * 70)
+
+            print(
+                f"AIFS FORECAST HOUR "
+                f"{index}/"
+                f"{len(forecast_hours)}: "
+                f"f{forecast_hour:03d}"
+            )
+
+            print("=" * 70)
+
+            check_working_disk_space(
+                MIN_FREE_DISK_GB
+            )
+
+            grib_path = None
+
+            try:
+
+                grib_path = (
+                    download_aifs_hour(
+                        forecast_hour,
+
+                        products=(
+                            download_products
+                        ),
+
+                        cycle=cycle,
+                    )
+                )
+
+                if (
+                    not grib_path.exists()
+                    or
+                    grib_path.stat().st_size
+                    <= 0
+                ):
+
+                    raise RuntimeError(
+                        f"AIFS "
+                        f"f{forecast_hour:03d}: "
+                        f"download produced "
+                        f"no usable GRIB"
+                    )
+
+                result[
+                    "forecast_hours_downloaded"
+                ] += 1
+
+                instant_result = (
+                    run_forecast_hour(
+                        grib_path=(
+                            grib_path
+                        ),
+
+                        model="aifs",
+
+                        step=(
+                            forecast_hour
+                        ),
+
+                        output_dir=(
+                            cycle_output_dir
+                        ),
+
+                        products=(
+                            instantaneous_products
+                        ),
+
+                        regions=(
+                            OPERATIONAL_REGIONS
+                        ),
+
+                        overwrite=(
+                            OVERWRITE_EXISTING
+                        ),
+                    )
+                )
+
+                for key in (
+                    "created",
+                    "skipped",
+                    "failed",
+                ):
+
+                    result[
+                        key
+                    ] += int(
+                        instant_result.get(
+                            key,
+                            0,
+                        )
+                    )
+
+                sequence_result = (
+                    sequence_processor.process_hour(
+                        step=(
+                            forecast_hour
+                        ),
+
+                        grib_path=(
+                            grib_path
+                        ),
+                    )
+                )
+
+                for key in (
+                    "created",
+                    "skipped",
+                    "failed",
+                ):
+
+                    result[
+                        key
+                    ] += int(
+                        sequence_result.get(
+                            key,
+                            0,
+                        )
+                    )
+
+                upload_result = (
+                    upload_forecast_hour_outputs(
+                        model="aifs",
+
+                        cycle_date=(
+                            identity[
+                                "date"
+                            ]
+                        ),
+
+                        cycle_hour=(
+                            identity[
+                                "hour"
+                            ]
+                        ),
+
+                        forecast_hour=(
+                            forecast_hour
+                        ),
+
+                        cycle_output_dir=(
+                            cycle_output_dir
+                        ),
+
+                        delete_after_upload=True,
+                    )
+                )
+
+                result[
+                    "cloud_uploaded"
+                ] += upload_result[
+                    "uploaded"
+                ]
+
+                result[
+                    "cloud_upload_failed"
+                ] += upload_result[
+                    "failed"
+                ]
+
+                result[
+                    "local_png_removed"
+                ] += upload_result[
+                    "removed"
+                ]
+
+                if (
+                    upload_result[
+                        "failed"
+                    ]
+                    > 0
+                ):
+
+                    result[
+                        "failed"
+                    ] += upload_result[
+                        "failed"
+                    ]
+
+                result[
+                    "forecast_hours_processed"
+                ] += 1
+
+            except Exception as error:
+
+                result[
+                    "failed"
+                ] += 1
+
+                print(
+                    f"AIFS "
+                    f"f{forecast_hour:03d}: "
+                    f"PIPELINE FAILED: "
+                    f"{error}"
+                )
+
+            finally:
+
+                if (
+                    grib_path
+                    is not None
+                ):
+
+                    try:
+
+                        if grib_path.exists():
+
+                            size_mb = (
+                                grib_path
+                                .stat()
+                                .st_size
+                                /
+                                1024
+                                /
+                                1024
+                            )
+
+                            delete_local(
+                                grib_path
+                            )
+
+                            print(
+                                f"Deleted raw "
+                                f"AIFS "
+                                f"f{forecast_hour:03d} "
+                                f"GRIB "
+                                f"({size_mb:.2f} MB)"
+                            )
+
+                    except Exception as error:
+
+                        print(
+                            f"AIFS GRIB CLEANUP "
+                            f"FAILED "
+                            f"f{forecast_hour:03d}: "
+                            f"{error}"
+                        )
+
+                remove_empty_directories(
+                    cycle_output_dir
+                )
+
+                check_working_disk_space(
+                    MIN_FREE_DISK_GB
+                )
+
+    finally:
+
+        sequence_processor.finish()
+
+        remove_empty_directories(
+            cycle_output_dir
+        )
+
+    print()
+    print("=" * 70)
+
+    print(
+        "AIFS STREAMING PIPELINE COMPLETE"
+    )
+
+    print("=" * 70)
+
+    print(
+        f"Forecast hours downloaded: "
+        f"{result['forecast_hours_downloaded']}/"
+        f"{result['forecast_hours_expected']}"
+    )
+
+    print(
+        f"Forecast hours processed: "
+        f"{result['forecast_hours_processed']}/"
+        f"{result['forecast_hours_expected']}"
+    )
+
+    print(
+        f"Maps created: "
+        f"{result['created']}"
+    )
+
+    print(
+        f"Maps skipped: "
+        f"{result['skipped']}"
+    )
+
+    print(
+        f"Failures: "
+        f"{result['failed']}"
+    )
+
+    print(
+        f"Cloud uploads: "
+        f"{result['cloud_uploaded']}"
+    )
+
+    print(
+        f"Cloud upload failures: "
+        f"{result['cloud_upload_failed']}"
+    )
+
+    print(
+        f"Local PNGs removed: "
+        f"{result['local_png_removed']}"
+    )
+
+    print("=" * 70)
+
+    return result
+
+
+# ============================================================
+# ENTRY POINT
+# ============================================================
+
+if __name__ == "__main__":
+
+    run_aifs()

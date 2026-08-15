@@ -1,0 +1,226 @@
+.ca-main {
+    max-width: 1180px;
+    margin: 0 auto;
+    padding: 22px;
+}
+
+.ca-title-row {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-bottom: 4px;
+}
+
+.ca-title-row h2 {
+    margin: 0;
+    font-size: 21px;
+    font-weight: 750;
+    letter-spacing: -0.01em;
+}
+
+.ca-subtitle {
+    color: var(--muted);
+    font-size: 13px;
+    margin: 0 0 18px;
+}
+
+.ca-status {
+    font-size: 12px;
+    color: var(--muted);
+}
+
+.ca-status.error {
+    color: var(--bad-text);
+}
+
+/* --------------------------------------------------------
+   STAT CARDS
+-------------------------------------------------------- */
+
+.ca-stats-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+    gap: 12px;
+    margin-bottom: 20px;
+}
+
+.ca-stat-card {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 12px 14px;
+}
+
+.ca-stat-label {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--muted);
+    margin-bottom: 6px;
+}
+
+.ca-stat-value {
+    font-size: 22px;
+    font-weight: 750;
+    letter-spacing: -0.01em;
+}
+
+.ca-stat-sub {
+    font-size: 12px;
+    color: var(--muted);
+    margin-top: 2px;
+}
+
+.ca-badge {
+    display: inline-flex;
+    align-items: center;
+    padding: 3px 10px;
+    border-radius: 999px;
+    font-size: 13px;
+    font-weight: 700;
+    border: 1px solid var(--border);
+}
+
+.ca-badge.westerly {
+    background: var(--good-bg);
+    border-color: var(--good-border);
+    color: var(--good-text);
+}
+
+.ca-badge.easterly {
+    background: var(--bad-bg);
+    border-color: var(--bad-border);
+    color: var(--bad-text);
+}
+
+/* --------------------------------------------------------
+   CHART PANEL
+-------------------------------------------------------- */
+
+.ca-chart-panel {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 14px;
+    margin-bottom: 16px;
+}
+
+.ca-chart-panel h3 {
+    margin: 0 0 10px;
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--text);
+}
+
+.ca-chart-wrapper {
+    width: 100%;
+    overflow: hidden;
+}
+
+.ca-chart-wrapper svg {
+    width: 100%;
+    height: auto;
+    display: block;
+}
+
+.ca-axis-line {
+    stroke: var(--border);
+    stroke-width: 1;
+}
+
+.ca-axis-label {
+    fill: var(--muted);
+    font-size: 10px;
+}
+
+.ca-zero-line {
+    stroke: var(--muted);
+    stroke-width: 1.25;
+    stroke-dasharray: 4 3;
+}
+
+.ca-zero-label {
+    fill: var(--muted);
+    font-size: 10px;
+    font-weight: 600;
+}
+
+.ca-year-line {
+    fill: none;
+    stroke-width: 1;
+    opacity: 0.38;
+}
+
+.ca-year-line.current {
+    stroke: var(--accent);
+    stroke-width: 3;
+    opacity: 1;
+}
+
+.ca-history-band {
+    fill: var(--muted);
+    opacity: 0.10;
+    stroke: none;
+}
+
+/* --------------------------------------------------------
+   COLOR LEGEND
+-------------------------------------------------------- */
+
+.ca-legend {
+    margin-top: 10px;
+}
+
+.ca-legend-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 16px;
+    font-size: 11px;
+    color: var(--muted);
+}
+
+.ca-legend-gradient-wrap {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.ca-legend-gradient {
+    width: 180px;
+    height: 10px;
+    display: block;
+}
+
+.ca-legend-current {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.ca-legend-current-line {
+    display: inline-block;
+    width: 22px;
+    height: 3px;
+    border-radius: 2px;
+    background: var(--accent);
+}
+
+/* --------------------------------------------------------
+   FOOTER / ATTRIBUTION
+-------------------------------------------------------- */
+
+.ca-attribution {
+    font-size: 11px;
+    color: var(--muted);
+    line-height: 1.5;
+    border-top: 1px solid var(--border);
+    padding-top: 12px;
+}
+
+.ca-attribution a {
+    color: var(--accent);
+}

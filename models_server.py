@@ -520,6 +520,130 @@ def metadata_file(
 
 
 # ============================================================
+# CURRENT ANALYSIS METADATA FROM GOOGLE CLOUD STORAGE
+# ============================================================
+#
+# Browser asks:
+#
+# /analysis/polar_vortex/10hpa_60n_zonal_wind/latest.json
+# /analysis/polar_vortex/10hpa_60n_zonal_wind/bundle.json
+#
+# Server reads:
+#
+# gs://massachusettswx-nwp-project/
+# analysis/polar_vortex/10hpa_60n_zonal_wind/latest.json
+#
+# This mirrors the /metadata/ proxy above, but serves the new
+# Current Analysis section (separate from the model viewer) instead.
+# The actual ERA5 ingestion job lives in
+# shared/era5_polar_vortex.py + jobs/update_polar_vortex.py and does
+# not run inside this web service; this route only serves what that
+# job has already written to Cloud Storage.
+# ============================================================
+
+@app.route(
+    "/analysis/<path:filename>"
+)
+def analysis_file(
+    filename,
+):
+
+    object_name = (
+        "analysis/"
+        + filename
+    )
+
+
+    try:
+
+        bucket = get_bucket()
+
+
+        blob = bucket.blob(
+            object_name
+        )
+
+
+        if not blob.exists():
+
+            print(
+                "ANALYSIS FILE NOT FOUND:",
+                object_name,
+            )
+
+
+            return jsonify(
+                {
+                    "error":
+                        "Analysis object not found.",
+
+                    "object":
+                        object_name,
+                }
+            ), 404
+
+
+        data = (
+            blob.download_as_bytes()
+        )
+
+
+        response = Response(
+            data,
+            mimetype="application/json",
+        )
+
+
+        # latest.json changes daily and should always be fresh.
+        # Everything else (per-year series, the combined bundle)
+        # changes at most once a day, so a short cache is fine and
+        # cuts down on repeated GCS reads.
+        if filename.endswith(
+            "latest.json"
+        ):
+
+            response.headers[
+                "Cache-Control"
+            ] = (
+                "no-store, "
+                "no-cache, "
+                "must-revalidate, "
+                "max-age=0"
+            )
+
+        else:
+
+            response.headers[
+                "Cache-Control"
+            ] = (
+                "public, max-age=3600"
+            )
+
+
+        return response
+
+
+    except Exception as exc:
+
+        print(
+            "ANALYSIS FILE ERROR:",
+            object_name,
+            exc,
+        )
+
+
+        return jsonify(
+            {
+                "error":
+                    str(exc),
+
+                "object":
+                    object_name,
+            }
+        ), 500
+
+
+# ============================================================
 # OPTIONAL LOCAL MODEL FILE ROUTES
 # ============================================================
 

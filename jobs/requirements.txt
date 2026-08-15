@@ -1,0 +1,21 @@
+# Requirements for jobs/update_polar_vortex.py ONLY.
+#
+# Deliberately NOT merged into the top-level requirements.txt: that
+# file is installed into the Cloud Run web service container
+# (models_server.py), which only serves already-processed JSON/PNG
+# from Cloud Storage and has no need for the scientific stack below.
+#
+# Matches ~/era5/requirements.txt's ARCO-based approach (Zarr over
+# HTTPS, Bearer-token auth) rather than the classic cdsapi Toolbox
+# client -- no cdsapi/netCDF4 needed here.
+#
+# Install into whatever environment actually runs the daily/backfill
+# job (matching wherever the GFS/IFS/AIFS pipelines already run).
+
+xarray>=2024.1
+zarr
+fsspec
+requests
+aiohttp
+numpy>=1.26
+google-cloud-storage>=2.16,<4
