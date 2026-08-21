@@ -1,19 +1,9 @@
-let manifest = null;
-
-let currentFiles = [];
-let currentIndex = 0;
-let playTimer = null;
-let manifestLoadToken = 0;
-
-
 const MODEL_CONFIG = {
-
     weathernext2_mean: {
         name: "WeatherNext 2",
 
         latestUrls: [
-            "../output/weathernext2_mean/latest.json",
-            "../output/latest.json",
+            "../metadata/weathernext2_mean/latest.json",
         ],
 
         manifestType: "direct",
@@ -63,115 +53,6 @@ const MODEL_CONFIG = {
 };
 
 
-const PRODUCT_DISPLAY_NAMES = {
-
-    h5_vort:
-        "500 mb Height + Relative Vorticity",
-
-    t925_hgt:
-        "925 mb Temperature + Height",
-
-    t850_hgt:
-        "850 mb Temperature + Height",
-
-    rh700_hgt:
-        "700 mb Relative Humidity + Height",
-
-    omega700:
-        "700 mb Vertical Velocity",
-
-    wind925_hgt:
-        "925 mb Wind + Height",
-
-    wind850_hgt:
-        "850 mb Wind + Height",
-
-    wind700_hgt:
-        "700 mb Wind + Height",
-
-    wind500_hgt:
-        "500 mb Wind + Height",
-
-    jet300:
-        "300 mb Jet",
-
-    jet250:
-        "250 mb Jet",
-
-    mslp:
-        "Mean Sea-Level Pressure",
-
-    t2m:
-        "2 m Temperature",
-
-    td2m:
-        "2 m Dew Point",
-
-    cloud_total:
-        "Total Cloud Cover",
-
-    wind10:
-        "10 m Wind",
-
-    wind100:
-        "100 m Wind",
-
-    pwat:
-        "Precipitable Water",
-
-    precip_rate:
-        "Precipitation Rate",
-
-    precip_type:
-        "Precipitation Type",
-
-    mucape:
-        "Most-Unstable CAPE",
-
-    geopotential_500:
-        "500 mb Geopotential Height",
-
-    vorticity_500:
-        "500 mb Relative Vorticity",
-
-    thickness_1000_500:
-        "1000–500 mb Thickness",
-
-    temperature_850:
-        "850 mb Temperature",
-
-    rh_omega_700:
-        "700 mb RH + Vertical Velocity",
-
-    temperature_2m:
-        "2 m Temperature",
-
-    wind_10m:
-        "10 m Wind",
-
-    wind_100m:
-        "100 m Wind",
-
-    wind_850:
-        "850 mb Wind",
-
-    wind_500:
-        "500 mb Wind",
-
-    jet_250:
-        "250 mb Jet",
-
-    precipitable_water:
-        "Precipitable Water",
-
-    precip_6h:
-        "6-h Precipitation",
-
-    total_precipitation:
-        "Total Precipitation",
-};
-
-
 const REGION_DISPLAY_NAMES = {
     global: "Global",
 
@@ -195,6 +76,7 @@ const REGION_DISPLAY_NAMES = {
     california: "California",
     alaska: "Alaska",
     hawaii: "Hawaii",
+
     canada: "Canada",
     eastern_canada: "Eastern Canada",
     western_canada: "Western Canada",
@@ -425,85 +307,130 @@ const REGION_GROUPS = [
 ];
 
 
-const modelText =
-    document.getElementById(
-        "modelText"
-    );
+const MODEL_ORDER = [
+    "weathernext2_mean",
+    "gfs",
+    "ifs",
+    "aifs",
+];
 
-const cycleText =
-    document.getElementById(
-        "cycleText"
-    );
 
-const availabilityBadge =
-    document.getElementById(
-        "availabilityBadge"
-    );
+const state = {
+    modelId: "gfs",
+
+    manifest: null,
+
+    files: [],
+
+    region: null,
+
+    product: null,
+
+    forecastHour: null,
+
+    frameIndex: 0,
+
+    playing: false,
+
+    animationTimer: null,
+};
+
 
 const modelSelect =
     document.getElementById(
         "modelSelect"
     );
 
+
 const regionSelect =
     document.getElementById(
         "regionSelect"
     );
+
 
 const productSelect =
     document.getElementById(
         "productSelect"
     );
 
+
 const speedSelect =
     document.getElementById(
         "speedSelect"
     );
 
-const mapImage =
-    document.getElementById(
-        "mapImage"
-    );
-
-const loadingText =
-    document.getElementById(
-        "loadingText"
-    );
 
 const prevButton =
     document.getElementById(
         "prevButton"
     );
 
-const nextButton =
-    document.getElementById(
-        "nextButton"
-    );
 
 const playButton =
     document.getElementById(
         "playButton"
     );
 
+
+const nextButton =
+    document.getElementById(
+        "nextButton"
+    );
+
+
+const mapImage =
+    document.getElementById(
+        "mapImage"
+    );
+
+
+const loadingText =
+    document.getElementById(
+        "loadingText"
+    );
+
+
+const modelText =
+    document.getElementById(
+        "modelText"
+    );
+
+
+const cycleText =
+    document.getElementById(
+        "cycleText"
+    );
+
+
+const availabilityBadge =
+    document.getElementById(
+        "availabilityBadge"
+    );
+
+
 const productText =
     document.getElementById(
         "productText"
     );
+
 
 const hourText =
     document.getElementById(
         "hourText"
     );
 
+
 const frameCounter =
     document.getElementById(
         "frameCounter"
     );
 
+
 const selectedHourText =
     document.getElementById(
         "selectedHourText"
     );
+
 
 const hourGrid =
     document.getElementById(
@@ -511,147 +438,24 @@ const hourGrid =
     );
 
 
-function prettifyIdentifier(
-    value
+function addCacheBuster(
+    url
 ) {
 
-    return String(
-        value || ""
-    )
-        .replace(
-            /_/g,
-            " "
-        )
-        .replace(
-            /\b\w/g,
-            letter =>
-                letter.toUpperCase()
-        );
-}
-
-
-function formatRegionName(
-    region
-) {
+    const separator =
+        url.includes("?")
+            ? "&"
+            : "?";
 
     return (
-        REGION_DISPLAY_NAMES[
-            region
-        ]
-        ||
-        prettifyIdentifier(
-            region
-        )
+        url
+        +
+        separator
+        +
+        "v="
+        +
+        Date.now()
     );
-}
-
-
-function productDisplayName(
-    product
-) {
-
-    return (
-        PRODUCT_DISPLAY_NAMES[
-            product
-        ]
-        ||
-        prettifyIdentifier(
-            product
-        )
-    );
-}
-
-
-function setAvailability(
-    state,
-    text
-) {
-
-    availabilityBadge.className =
-        (
-            "availability-badge "
-            +
-            state
-        );
-
-    availabilityBadge.textContent =
-        text;
-}
-
-
-function stopAnimation() {
-
-    if (!playTimer) {
-        return;
-    }
-
-    clearInterval(
-        playTimer
-    );
-
-    playTimer = null;
-
-    playButton.textContent =
-        "▶ Play";
-}
-
-
-function clearViewer(
-    message
-) {
-
-    stopAnimation();
-
-    manifest = null;
-
-    currentFiles = [];
-    currentIndex = 0;
-
-    regionSelect.innerHTML =
-        "";
-
-    productSelect.innerHTML =
-        "";
-
-    hourGrid.innerHTML =
-        "";
-
-    selectedHourText.textContent =
-        "—";
-
-    productText.textContent =
-        "No data";
-
-    hourText.textContent =
-        "—";
-
-    frameCounter.textContent =
-        "0 / 0";
-
-    mapImage.removeAttribute(
-        "src"
-    );
-
-    loadingText.style.display =
-        "flex";
-
-    loadingText.textContent =
-        message;
-
-    regionSelect.disabled =
-        true;
-
-    productSelect.disabled =
-        true;
-
-    prevButton.disabled =
-        true;
-
-    nextButton.disabled =
-        true;
-
-    playButton.disabled =
-        true;
 }
 
 
@@ -661,27 +465,34 @@ async function fetchJson(
 
     const response =
         await fetch(
-            url,
+            addCacheBuster(
+                url
+            ),
             {
-                cache:
-                    "no-store",
+                cache: "no-store",
             }
         );
 
-    if (!response.ok) {
+    if (
+        !response.ok
+    ) {
 
         throw new Error(
             (
-                url
-                +
-                " returned "
+                "HTTP "
                 +
                 response.status
+                +
+                " for "
+                +
+                url
             )
         );
     }
 
-    return response.json();
+    return (
+        await response.json()
+    );
 }
 
 
@@ -692,17 +503,24 @@ async function fetchFirstAvailableJson(
     let lastError =
         null;
 
-    for (const url of urls) {
+    for (
+        const url
+        of urls
+    ) {
 
         try {
 
-            return await fetchJson(
-                url
+            return (
+                await fetchJson(
+                    url
+                )
             );
 
         }
 
-        catch (error) {
+        catch (
+            error
+        ) {
 
             lastError =
                 error;
@@ -713,7 +531,7 @@ async function fetchFirstAvailableJson(
         lastError
         ||
         new Error(
-            "No manifest is available."
+            "No JSON URL was available."
         )
     );
 }
@@ -723,108 +541,30 @@ function resolveObjectUrl(
     objectName
 ) {
 
-    if (!objectName) {
+    if (
+        !objectName
+    ) {
+
         return null;
     }
 
-    const value =
-        String(
-            objectName
-        );
-
-    const storagePrefix =
-        (
-            "https://storage.googleapis.com/"
-            +
-            "massachusettswx-nwp-project/"
-        );
-
     if (
-        value.startsWith(
-            storagePrefix
-        )
-    ) {
-
-        const objectPath =
-            value.slice(
-                storagePrefix.length
-            );
-
-        if (
-            objectPath.startsWith(
-                "products/"
-            )
-        ) {
-
-            return (
-                "/objects/"
-                +
-                objectPath.replace(
-                    /^\/+/,
-                    ""
-                )
-            );
-        }
-
-        return (
-            "../"
-            +
-            objectPath.replace(
-                /^\/+/,
-                ""
-            )
-        );
-    }
-
-    if (
-        value.startsWith(
-            "products/"
-        )
-    ) {
-
-        return (
-            "/objects/"
-            +
-            value.replace(
-                /^\/+/,
-                ""
-            )
-        );
-    }
-
-    if (
-        value.startsWith(
-            "metadata/"
-        )
-    ) {
-
-        return (
-            "../"
-            +
-            value.replace(
-                /^\/+/,
-                ""
-            )
-        );
-    }
-
-    if (
-        value.startsWith(
+        objectName.startsWith(
             "http://"
         )
         ||
-        value.startsWith(
+        objectName.startsWith(
             "https://"
         )
     ) {
 
-        return value;
+        return objectName;
     }
 
     return (
         "../"
         +
-        value.replace(
+        objectName.replace(
             /^\/+/,
             ""
         )
@@ -860,10 +600,11 @@ async function loadRawManifest(
     /*
      * Operational GFS / IFS / AIFS:
      *
-     *   1. Prefer current.json so a cycle becomes usable while it
-     *      is still running.
-     *   2. Fall back to latest.json when no current cycle has begun
-     *      or current metadata is temporarily unavailable.
+     * 1. Prefer current.json so a cycle becomes usable while it
+     *    is still running.
+     *
+     * 2. Fall back to latest.json when no current cycle has begun
+     *    or current metadata is temporarily unavailable.
      */
     let pointer =
         null;
@@ -883,7 +624,9 @@ async function loadRawManifest(
 
         }
 
-        catch (error) {
+        catch (
+            error
+        ) {
 
             console.debug(
                 (
@@ -909,15 +652,17 @@ async function loadRawManifest(
     const manifestUrl =
         (
             pointer.manifest_object
-            ?
-            resolveObjectUrl(
-                pointer.manifest_object
-            )
-            :
-            pointer.manifest_url
+                ?
+                resolveObjectUrl(
+                    pointer.manifest_object
+                )
+                :
+                pointer.manifest_url
         );
 
-    if (!manifestUrl) {
+    if (
+        !manifestUrl
+    ) {
 
         throw new Error(
             (
@@ -928,199 +673,320 @@ async function loadRawManifest(
         );
     }
 
-    return fetchJson(
-        manifestUrl
+    return (
+        fetchJson(
+            manifestUrl
+        )
     );
 }
 
+
 function normalizeFile(
-    file,
-    modelId
+    file
 ) {
 
-    let imageUrl =
-        null;
-
-    if (file.object_name) {
-
-        imageUrl =
-            resolveObjectUrl(
-                file.object_name
-            );
-    }
-
-    else if (file.https_url) {
-
-        imageUrl =
-            resolveObjectUrl(
-                file.https_url
-            );
-    }
-
-    else if (file.path) {
-
-        imageUrl =
-            (
-                "../"
-                +
-                String(
-                    file.path
-                ).replace(
-                    /^\/+/
-,
-                    ""
-                )
-            );
-    }
+    const forecastHour =
+        Number(
+            file.forecast_hour
+            ??
+            file.forecastHour
+            ??
+            file.hour
+            ??
+            0
+        );
 
     return {
-
-        status:
-            (
-                file.status
-                ||
-                "ready"
-            ),
+        ...file,
 
         model:
-            (
-                file.model
-                ||
-                modelId
-            ),
-
-        product:
-            file.product,
-
-        product_name:
-            (
-                file.product_name
-                ||
-                productDisplayName(
-                    file.product
-                )
-            ),
+            file.model
+            ??
+            state.modelId,
 
         region:
-            file.region,
+            file.region
+            ??
+            "global",
+
+        product:
+            file.product
+            ??
+            "unknown",
 
         forecast_hour:
-            Number(
-                file.forecast_hour
-            ),
+            forecastHour,
 
-        image_url:
-            imageUrl,
+        url:
+            (
+                file.url
+                ??
+                file.public_url
+                ??
+                file.https_url
+                ??
+                (
+                    file.object_name
+                        ?
+                        resolveObjectUrl(
+                            file.object_name
+                        )
+                        :
+                        null
+                )
+            ),
     };
 }
 
 
 function normalizeManifest(
-    rawManifest,
-    modelId
+    rawManifest
 ) {
 
-    const sourceFiles =
+    const rawFiles =
         (
-            Array.isArray(
-                rawManifest.files
-            )
-            ?
             rawManifest.files
-            :
+            ??
+            rawManifest.products
+            ??
             []
         );
 
-    return {
-
-        ...rawManifest,
-
-        model:
-            (
-                rawManifest.model
-                ||
-                modelId
-            ),
-
-        model_name:
-            (
-                rawManifest.model_name
-                ||
-                MODEL_CONFIG[
-                    modelId
-                ].name
-            ),
-
-        files:
-            sourceFiles
+    const files =
+        Array.isArray(
+            rawFiles
+        )
+            ?
+            rawFiles
                 .map(
-                    file =>
-                        normalizeFile(
-                            file,
-                            modelId
-                        )
+                    normalizeFile
                 )
                 .filter(
                     file =>
-                        file.product
-                        &&
-                        file.region
-                        &&
-                        file.image_url
-                        &&
-                        Number.isFinite(
-                            file.forecast_hour
+                        (
+                            file.url
+                            &&
+                            file.region
+                            &&
+                            file.product
                         )
-                ),
+                )
+            :
+            [];
+
+    return {
+        ...rawManifest,
+
+        files:
+            files,
     };
 }
 
 
-function goodFiles() {
+function getDisplayModelName() {
+
+    return (
+        MODEL_CONFIG[
+            state.modelId
+        ]?.name
+        ??
+        state.modelId.toUpperCase()
+    );
+}
+
+
+function formatRegionName(
+    region
+) {
 
     if (
-        !manifest
-        ||
-        !Array.isArray(
-            manifest.files
-        )
+        REGION_DISPLAY_NAMES[
+            region
+        ]
     ) {
 
-        return [];
+        return (
+            REGION_DISPLAY_NAMES[
+                region
+            ]
+        );
     }
 
-    return manifest.files.filter(
-        file =>
-            file.status
-            !==
-            "failed"
-            &&
-            file.product
-            &&
-            file.region
-            &&
-            file.image_url
-            &&
-            Number.isFinite(
-                file.forecast_hour
+    return (
+        String(
+            region
+        )
+            .replaceAll(
+                "_",
+                " "
+            )
+            .replace(
+                /\b\w/g,
+                character =>
+                    character.toUpperCase()
             )
     );
 }
 
 
-function populateRegions() {
+function formatProductName(
+    product
+) {
 
-    const availableRegions =
+    return (
+        String(
+            product
+        )
+            .replaceAll(
+                "_",
+                " "
+            )
+            .replace(
+                /\b\w/g,
+                character =>
+                    character.toUpperCase()
+            )
+    );
+}
+
+
+function formatForecastHour(
+    forecastHour
+) {
+
+    return (
+        "f"
+        +
+        String(
+            Number(
+                forecastHour
+            )
+        ).padStart(
+            3,
+            "0"
+        )
+    );
+}
+
+
+function availableRegions() {
+
+    return (
         new Set(
-            goodFiles()
-                .map(
-                    file =>
+            state.files.map(
+                file =>
+                    file.region
+            )
+        )
+    );
+}
+
+
+function filesForRegion(
+    region
+) {
+
+    return (
+        state.files.filter(
+            file =>
+                file.region
+                ===
+                region
+        )
+    );
+}
+
+
+function filesForSelection() {
+
+    return (
+        state.files
+            .filter(
+                file =>
+                    (
                         file.region
-                )
-        );
+                        ===
+                        state.region
+                    )
+                    &&
+                    (
+                        file.product
+                        ===
+                        state.product
+                    )
+            )
+            .sort(
+                (
+                    a,
+                    b
+                ) =>
+                    (
+                        Number(
+                            a.forecast_hour
+                        )
+                        -
+                        Number(
+                            b.forecast_hour
+                        )
+                    )
+            )
+    );
+}
+
+
+function populateModelSelect() {
 
     const previous =
-        regionSelect.value;
+        state.modelId;
+
+    modelSelect.innerHTML =
+        "";
+
+    for (
+        const modelId
+        of MODEL_ORDER
+    ) {
+
+        const config =
+            MODEL_CONFIG[
+                modelId
+            ];
+
+        if (
+            !config
+        ) {
+
+            continue;
+        }
+
+        const option =
+            document.createElement(
+                "option"
+            );
+
+        option.value =
+            modelId;
+
+        option.textContent =
+            config.name;
+
+        modelSelect.appendChild(
+            option
+        );
+    }
+
+    modelSelect.value =
+        previous;
+}
+
+
+function populateRegions() {
+
+    const available =
+        availableRegions();
+
+    const previous =
+        state.region;
 
     regionSelect.innerHTML =
         "";
@@ -1131,16 +997,16 @@ function populateRegions() {
     REGION_GROUPS.forEach(
         groupConfig => {
 
-            const available =
+            const groupRegions =
                 groupConfig.regions.filter(
                     region =>
-                        availableRegions.has(
+                        available.has(
                             region
                         )
                 );
 
             if (
-                available.length
+                groupRegions.length
                 ===
                 0
             ) {
@@ -1156,7 +1022,7 @@ function populateRegions() {
             group.label =
                 groupConfig.name;
 
-            available.forEach(
+            groupRegions.forEach(
                 region => {
 
                     const option =
@@ -1190,28 +1056,30 @@ function populateRegions() {
 
     const uncategorized =
         [
-            ...availableRegions,
+            ...available,
         ]
-        .filter(
-            region =>
-                !included.has(
-                    region
-                )
-        )
-        .sort(
-            (
-                a,
-                b
-            ) =>
-                formatRegionName(
-                    a
-                )
-                .localeCompare(
-                    formatRegionName(
-                        b
+            .filter(
+                region =>
+                    !included.has(
+                        region
                     )
-                )
-        );
+            )
+            .sort(
+                (
+                    a,
+                    b
+                ) =>
+                    (
+                        formatRegionName(
+                            a
+                        )
+                            .localeCompare(
+                                formatRegionName(
+                                    b
+                                )
+                            )
+                    )
+            );
 
     if (
         uncategorized.length
@@ -1255,100 +1123,348 @@ function populateRegions() {
     }
 
     if (
-        availableRegions.has(
+        previous
+        &&
+        available.has(
             previous
         )
     ) {
 
-        regionSelect.value =
+        state.region =
             previous;
     }
 
     else if (
-        availableRegions.has(
+        available.has(
             "conus"
         )
     ) {
 
-        regionSelect.value =
+        state.region =
             "conus";
     }
 
-    else if (
-        availableRegions.size
-        >
-        0
+    else {
+
+        state.region =
+            (
+                [
+                    ...available,
+                ][0]
+                ??
+                null
+            );
+    }
+
+    if (
+        state.region
     ) {
 
         regionSelect.value =
-            [
-                ...availableRegions,
-            ][
-                0
-            ];
+            state.region;
     }
 }
 
+
 function populateProducts() {
+
+    const previous =
+        state.product;
 
     const products =
         [
             ...new Set(
-                goodFiles()
-                    .map(
-                        file =>
-                            file.product
-                    )
+                filesForRegion(
+                    state.region
+                ).map(
+                    file =>
+                        file.product
+                )
             ),
-        ]
-        .sort(
-            (
-                a,
-                b
-            ) =>
-                productDisplayName(
-                    a
-                )
-                .localeCompare(
-                    productDisplayName(
-                        b
-                    )
-                )
-        );
+        ].sort();
 
     productSelect.innerHTML =
         "";
 
-    products.forEach(
-        product => {
+    for (
+        const product
+        of products
+    ) {
 
-            const option =
-                document.createElement(
-                    "option"
-                );
-
-            option.value =
-                product;
-
-            option.textContent =
-                productDisplayName(
-                    product
-                );
-
-            productSelect.appendChild(
-                option
+        const option =
+            document.createElement(
+                "option"
             );
-        }
-    );
+
+        option.value =
+            product;
+
+        option.textContent =
+            formatProductName(
+                product
+            );
+
+        productSelect.appendChild(
+            option
+        );
+    }
+
+    if (
+        previous
+        &&
+        products.includes(
+            previous
+        )
+    ) {
+
+        state.product =
+            previous;
+    }
+
+    else {
+
+        state.product =
+            (
+                products[0]
+                ??
+                null
+            );
+    }
+
+    if (
+        state.product
+    ) {
+
+        productSelect.value =
+            state.product;
+    }
 }
 
 
-function populateHourGrid() {
+function updateSelectionFiles() {
+
+    state.selectionFiles =
+        filesForSelection();
+
+    if (
+        state.selectionFiles.length
+        ===
+        0
+    ) {
+
+        state.frameIndex =
+            0;
+
+        state.forecastHour =
+            null;
+
+        return;
+    }
+
+    const matchingIndex =
+        state.selectionFiles.findIndex(
+            file =>
+                Number(
+                    file.forecast_hour
+                )
+                ===
+                Number(
+                    state.forecastHour
+                )
+        );
+
+    if (
+        matchingIndex
+        >=
+        0
+    ) {
+
+        state.frameIndex =
+            matchingIndex;
+    }
+
+    else {
+
+        state.frameIndex =
+            0;
+
+        state.forecastHour =
+            Number(
+                state.selectionFiles[
+                    0
+                ].forecast_hour
+            );
+    }
+}
+
+
+function updateHeader() {
+
+    modelText.textContent =
+        getDisplayModelName();
+
+    const cycle =
+        (
+            state.manifest?.cycle
+            ??
+            state.manifest?.cycle_id
+            ??
+            "Latest"
+        );
+
+    cycleText.textContent =
+        (
+            "Cycle: "
+            +
+            cycle
+        );
+
+    const status =
+        (
+            state.manifest?.status
+            ??
+            (
+                state.files.length
+                    >
+                    0
+                    ?
+                    "available"
+                    :
+                    "unavailable"
+            )
+        );
+
+    availabilityBadge.textContent =
+        (
+            status === "running"
+                ?
+                "Updating"
+                :
+                status === "complete"
+                    ?
+                    "Complete"
+                    :
+                    status === "available"
+                        ?
+                        "Available"
+                        :
+                        "Unavailable"
+        );
+
+    availabilityBadge.className =
+        (
+            "availability-badge "
+            +
+            status
+        );
+}
+
+
+function updateFrameInformation() {
+
+    if (
+        !state.selectionFiles
+        ||
+        state.selectionFiles.length
+        ===
+        0
+    ) {
+
+        productText.textContent =
+            "—";
+
+        hourText.textContent =
+            "—";
+
+        selectedHourText.textContent =
+            "—";
+
+        frameCounter.textContent =
+            "0 / 0";
+
+        return;
+    }
+
+    const current =
+        state.selectionFiles[
+            state.frameIndex
+        ];
+
+    productText.textContent =
+        formatProductName(
+            current.product
+        );
+
+    hourText.textContent =
+        formatForecastHour(
+            current.forecast_hour
+        );
+
+    selectedHourText.textContent =
+        formatForecastHour(
+            current.forecast_hour
+        );
+
+    frameCounter.textContent =
+        (
+            (state.frameIndex + 1)
+            +
+            " / "
+            +
+            state.selectionFiles.length
+        );
+}
+
+
+function updateNavigationButtons() {
+
+    const count =
+        (
+            state.selectionFiles?.length
+            ??
+            0
+        );
+
+    prevButton.disabled =
+        (
+            count
+            ===
+            0
+        );
+
+    nextButton.disabled =
+        (
+            count
+            ===
+            0
+        );
+
+    playButton.disabled =
+        (
+            count
+            <=
+            1
+        );
+}
+
+
+function renderHourGrid() {
 
     hourGrid.innerHTML =
         "";
 
-    currentFiles.forEach(
+    if (
+        !state.selectionFiles
+        ||
+        state.selectionFiles.length
+        ===
+        0
+    ) {
+
+        return;
+    }
+
+    state.selectionFiles.forEach(
         (
             file,
             index
@@ -1365,10 +1481,20 @@ function populateHourGrid() {
             button.className =
                 "hour-button";
 
+            button.textContent =
+                String(
+                    Number(
+                        file.forecast_hour
+                    )
+                ).padStart(
+                    3,
+                    "0"
+                );
+
             if (
                 index
                 ===
-                currentIndex
+                state.frameIndex
             ) {
 
                 button.classList.add(
@@ -1376,31 +1502,21 @@ function populateHourGrid() {
                 );
             }
 
-            button.textContent =
-                String(
-                    file.forecast_hour
-                ).padStart(
-                    3,
-                    "0"
-                );
-
-            button.title =
-                (
-                    "Forecast hour "
-                    +
-                    file.forecast_hour
-                );
-
             button.addEventListener(
                 "click",
                 () => {
 
                     stopAnimation();
 
-                    currentIndex =
+                    state.frameIndex =
                         index;
 
-                    showCurrentImage();
+                    state.forecastHour =
+                        Number(
+                            file.forecast_hour
+                        );
+
+                    renderCurrentFrame();
                 }
             );
 
@@ -1412,147 +1528,83 @@ function populateHourGrid() {
 }
 
 
-function updateAvailableFiles() {
+function renderNoData(
+    message
+) {
 
-    stopAnimation();
+    mapImage.style.display =
+        "none";
 
-    const region =
-        regionSelect.value;
+    mapImage.removeAttribute(
+        "src"
+    );
 
-    const product =
-        productSelect.value;
+    loadingText.style.display =
+        "flex";
 
-    currentFiles =
-        goodFiles()
-            .filter(
-                file =>
-                    file.region
-                    ===
-                    region
-                    &&
-                    file.product
-                    ===
-                    product
-            )
-            .sort(
-                (
-                    a,
-                    b
-                ) =>
-                    a.forecast_hour
-                    -
-                    b.forecast_hour
-            );
+    loadingText.textContent =
+        (
+            message
+            ??
+            "No forecast data available."
+        );
 
-    currentIndex = 0;
+    updateFrameInformation();
 
-    populateHourGrid();
+    updateNavigationButtons();
 
-    showCurrentImage();
+    renderHourGrid();
 }
 
 
-function updateControls() {
-
-    const hasFrames =
-        currentFiles.length
-        >
-        0;
-
-    prevButton.disabled =
-        !hasFrames;
-
-    nextButton.disabled =
-        !hasFrames;
-
-    playButton.disabled =
-        currentFiles.length
-        <
-        2;
-
-    if (!hasFrames) {
-
-        productText.textContent =
-            "No data";
-
-        hourText.textContent =
-            "—";
-
-        selectedHourText.textContent =
-            "—";
-
-        frameCounter.textContent =
-            "0 / 0";
-
-        return;
-    }
-
-    const file =
-        currentFiles[
-            currentIndex
-        ];
-
-    productText.textContent =
-        file.product_name;
-
-    const hourLabel =
-        (
-            "F"
-            +
-            String(
-                file.forecast_hour
-            ).padStart(
-                3,
-                "0"
-            )
-        );
-
-    hourText.textContent =
-        hourLabel;
-
-    selectedHourText.textContent =
-        hourLabel;
-
-    frameCounter.textContent =
-        (
-            (currentIndex + 1)
-            +
-            " / "
-            +
-            currentFiles.length
-        );
-}
-
-
-function showCurrentImage() {
-
-    updateControls();
-
-    populateHourGrid();
+function renderCurrentFrame() {
 
     if (
-        currentFiles.length
+        !state.selectionFiles
+        ||
+        state.selectionFiles.length
         ===
         0
     ) {
 
-        loadingText.style.display =
-            "flex";
-
-        loadingText.textContent =
-            "No maps available for this selection.";
-
-        mapImage.removeAttribute(
-            "src"
+        renderNoData(
+            "No forecast frames available for this selection."
         );
 
         return;
     }
 
-    const file =
-        currentFiles[
-            currentIndex
+    if (
+        state.frameIndex
+        <
+        0
+    ) {
+
+        state.frameIndex =
+            0;
+    }
+
+    if (
+        state.frameIndex
+        >=
+        state.selectionFiles.length
+    ) {
+
+        state.frameIndex =
+            state.selectionFiles.length
+            -
+            1;
+    }
+
+    const current =
+        state.selectionFiles[
+            state.frameIndex
         ];
+
+    state.forecastHour =
+        Number(
+            current.forecast_hour
+        );
 
     loadingText.style.display =
         "flex";
@@ -1565,6 +1617,9 @@ function showCurrentImage() {
 
             loadingText.style.display =
                 "none";
+
+            mapImage.style.display =
+                "block";
         };
 
     mapImage.onerror =
@@ -1575,47 +1630,53 @@ function showCurrentImage() {
 
             loadingText.textContent =
                 "Map image could not be loaded.";
+
+            mapImage.style.display =
+                "none";
         };
 
-    const separator =
-        (
-            file.image_url.includes(
-                "?"
-            )
-            ?
-            "&"
-            :
-            "?"
-        );
-
-    const version =
-        encodeURIComponent(
-            (
-                manifest
-                &&
-                manifest.updated_at_utc
-            )
-            ||
-            Date.now()
-        );
-
     mapImage.src =
-        (
-            file.image_url
-            +
-            separator
-            +
-            "v="
-            +
-            version
+        addCacheBuster(
+            current.url
         );
+
+    mapImage.alt =
+        (
+            getDisplayModelName()
+            +
+            " "
+            +
+            formatProductName(
+                current.product
+            )
+            +
+            " "
+            +
+            formatRegionName(
+                current.region
+            )
+            +
+            " "
+            +
+            formatForecastHour(
+                current.forecast_hour
+            )
+        );
+
+    updateFrameInformation();
+
+    updateNavigationButtons();
+
+    renderHourGrid();
 }
 
 
-function previousHour() {
+function previousFrame() {
 
     if (
-        currentFiles.length
+        !state.selectionFiles
+        ||
+        state.selectionFiles.length
         ===
         0
     ) {
@@ -1623,25 +1684,31 @@ function previousHour() {
         return;
     }
 
-    currentIndex =
-        (
-            currentIndex
+    state.frameIndex -=
+        1;
+
+    if (
+        state.frameIndex
+        <
+        0
+    ) {
+
+        state.frameIndex =
+            state.selectionFiles.length
             -
-            1
-            +
-            currentFiles.length
-        )
-        %
-        currentFiles.length;
+            1;
+    }
 
-    showCurrentImage();
+    renderCurrentFrame();
 }
 
 
-function nextHour() {
+function nextFrame() {
 
     if (
-        currentFiles.length
+        !state.selectionFiles
+        ||
+        state.selectionFiles.length
         ===
         0
     ) {
@@ -1649,97 +1716,153 @@ function nextHour() {
         return;
     }
 
-    currentIndex =
-        (
-            currentIndex
-            +
-            1
-        )
-        %
-        currentFiles.length;
+    state.frameIndex +=
+        1;
 
-    showCurrentImage();
+    if (
+        state.frameIndex
+        >=
+        state.selectionFiles.length
+    ) {
+
+        state.frameIndex =
+            0;
+    }
+
+    renderCurrentFrame();
+}
+
+
+function animationDelay() {
+
+    const value =
+        Number(
+            speedSelect.value
+        );
+
+    if (
+        Number.isFinite(
+            value
+        )
+        &&
+        value
+        >
+        0
+    ) {
+
+        return value;
+    }
+
+    return 800;
+}
+
+
+function stopAnimation() {
+
+    if (
+        state.animationTimer
+    ) {
+
+        clearInterval(
+            state.animationTimer
+        );
+
+        state.animationTimer =
+            null;
+    }
+
+    state.playing =
+        false;
+
+    playButton.textContent =
+        "▶ Play";
 }
 
 
 function startAnimation() {
 
     if (
-        currentFiles.length
-        <
-        2
+        !state.selectionFiles
+        ||
+        state.selectionFiles.length
+        <=
+        1
     ) {
 
         return;
     }
 
-    const delay =
-        Number(
-            speedSelect.value
-        );
+    stopAnimation();
+
+    state.playing =
+        true;
 
     playButton.textContent =
         "❚❚ Pause";
 
-    playTimer =
+    state.animationTimer =
         setInterval(
-            nextHour,
-            delay
+            () => {
+
+                nextFrame();
+
+            },
+            animationDelay()
         );
 }
 
 
-function togglePlay() {
+function toggleAnimation() {
 
-    if (playTimer) {
+    if (
+        state.playing
+    ) {
 
         stopAnimation();
-
-        return;
     }
 
-    startAnimation();
+    else {
+
+        startAnimation();
+    }
 }
 
 
-async function loadSelectedModel() {
+async function loadModel(
+    modelId,
+    {
+        preserveSelection = false,
+    } = {}
+) {
 
     stopAnimation();
 
-    const token =
-        ++manifestLoadToken;
+    state.modelId =
+        modelId;
 
-    const modelId =
-        modelSelect.value;
+    modelSelect.value =
+        modelId;
 
-    const config =
-        MODEL_CONFIG[
-            modelId
-        ];
+    loadingText.style.display =
+        "flex";
 
-    modelText.textContent =
-        config.name;
-
-    cycleText.textContent =
-        "Loading latest cycle...";
-
-    setAvailability(
-        "loading",
-        "Loading"
-    );
-
-    clearViewer(
+    loadingText.textContent =
         (
-            "Loading latest "
+            "Loading "
             +
-            config.name
+            getDisplayModelName()
             +
-            " cycle..."
-        )
-    );
+            "..."
+        );
 
-    modelSelect.disabled =
-        false;
+    mapImage.style.display =
+        "none";
+
+    availabilityBadge.textContent =
+        "Loading";
+
+    availabilityBadge.className =
+        "availability-badge loading";
 
     try {
 
@@ -1748,98 +1871,195 @@ async function loadSelectedModel() {
                 modelId
             );
 
-        if (
-            token
-            !==
-            manifestLoadToken
-        ) {
-
-            return;
-        }
-
-        manifest =
+        state.manifest =
             normalizeManifest(
-                rawManifest,
-                modelId
+                rawManifest
             );
+
+        state.files =
+            state.manifest.files;
 
         if (
-            goodFiles().length
-            ===
-            0
+            !preserveSelection
         ) {
 
-            throw new Error(
-                "No usable maps in manifest."
-            );
+            state.region =
+                null;
+
+            state.product =
+                null;
+
+            state.forecastHour =
+                null;
+
+            state.frameIndex =
+                0;
         }
-
-        modelText.textContent =
-            manifest.model_name;
-
-        cycleText.textContent =
-            (
-                "Cycle "
-                +
-                manifest.cycle
-            );
-
-        setAvailability(
-            "ready",
-            "Ready"
-        );
-
-        regionSelect.disabled =
-            false;
-
-        productSelect.disabled =
-            false;
 
         populateRegions();
 
         populateProducts();
 
-        updateAvailableFiles();
+        updateSelectionFiles();
+
+        updateHeader();
+
+        renderCurrentFrame();
 
     }
 
-    catch (error) {
+    catch (
+        error
+    ) {
 
         console.error(
             error
         );
 
+        state.manifest =
+            null;
+
+        state.files =
+            [];
+
+        state.selectionFiles =
+            [];
+
+        state.region =
+            null;
+
+        state.product =
+            null;
+
+        state.forecastHour =
+            null;
+
+        state.frameIndex =
+            0;
+
+        modelText.textContent =
+            getDisplayModelName();
+
+        cycleText.textContent =
+            "Cycle unavailable";
+
+        availabilityBadge.textContent =
+            "Unavailable";
+
+        availabilityBadge.className =
+            "availability-badge unavailable";
+
+        regionSelect.innerHTML =
+            "";
+
+        productSelect.innerHTML =
+            "";
+
+        renderNoData(
+            (
+                getDisplayModelName()
+                +
+                " does not have a published cycle available yet."
+            )
+        );
+    }
+}
+
+
+async function refreshCurrentModel() {
+
+    const previousCycle =
+        state.manifest?.cycle
+        ??
+        state.manifest?.cycle_id
+        ??
+        null;
+
+    const previousFileCount =
+        state.files.length;
+
+    const previousRegion =
+        state.region;
+
+    const previousProduct =
+        state.product;
+
+    const previousHour =
+        state.forecastHour;
+
+    try {
+
+        const rawManifest =
+            await loadRawManifest(
+                state.modelId
+            );
+
+        const refreshed =
+            normalizeManifest(
+                rawManifest
+            );
+
+        const refreshedCycle =
+            refreshed.cycle
+            ??
+            refreshed.cycle_id
+            ??
+            null;
+
+        const changed =
+            (
+                refreshedCycle
+                !==
+                previousCycle
+            )
+            ||
+            (
+                refreshed.files.length
+                !==
+                previousFileCount
+            );
+
         if (
-            token
-            !==
-            manifestLoadToken
+            !changed
         ) {
 
             return;
         }
 
-        cycleText.textContent =
-            "Latest cycle unavailable";
+        state.manifest =
+            refreshed;
 
-        setAvailability(
-            "unavailable",
-            "Unavailable"
-        );
+        state.files =
+            refreshed.files;
 
-        clearViewer(
-            (
-                config.name
-                +
-                " does not have a published cycle available yet."
-            )
-        );
+        state.region =
+            previousRegion;
 
-        modelSelect.disabled =
-            false;
+        state.product =
+            previousProduct;
 
-        setAvailability(
-            "unavailable",
-            "Unavailable"
+        state.forecastHour =
+            previousHour;
+
+        populateRegions();
+
+        populateProducts();
+
+        updateSelectionFiles();
+
+        updateHeader();
+
+        renderCurrentFrame();
+
+    }
+
+    catch (
+        error
+    ) {
+
+        console.debug(
+            "Background manifest refresh failed:",
+            error
         );
     }
 }
@@ -1847,31 +2067,77 @@ async function loadSelectedModel() {
 
 modelSelect.addEventListener(
     "change",
-    loadSelectedModel
+    () => {
+
+        loadModel(
+            modelSelect.value
+        );
+    }
 );
+
 
 regionSelect.addEventListener(
     "change",
-    updateAvailableFiles
+    () => {
+
+        stopAnimation();
+
+        state.region =
+            regionSelect.value;
+
+        state.product =
+            null;
+
+        state.forecastHour =
+            null;
+
+        state.frameIndex =
+            0;
+
+        populateProducts();
+
+        updateSelectionFiles();
+
+        renderCurrentFrame();
+    }
 );
+
 
 productSelect.addEventListener(
     "change",
-    updateAvailableFiles
+    () => {
+
+        stopAnimation();
+
+        state.product =
+            productSelect.value;
+
+        state.forecastHour =
+            null;
+
+        state.frameIndex =
+            0;
+
+        updateSelectionFiles();
+
+        renderCurrentFrame();
+    }
 );
+
 
 speedSelect.addEventListener(
     "change",
     () => {
 
-        if (playTimer) {
-
-            stopAnimation();
+        if (
+            state.playing
+        ) {
 
             startAnimation();
         }
     }
 );
+
 
 prevButton.addEventListener(
     "click",
@@ -1879,9 +2145,19 @@ prevButton.addEventListener(
 
         stopAnimation();
 
-        previousHour();
+        previousFrame();
     }
 );
+
+
+playButton.addEventListener(
+    "click",
+    () => {
+
+        toggleAnimation();
+    }
+);
+
 
 nextButton.addEventListener(
     "click",
@@ -1889,13 +2165,8 @@ nextButton.addEventListener(
 
         stopAnimation();
 
-        nextHour();
+        nextFrame();
     }
-);
-
-playButton.addEventListener(
-    "click",
-    togglePlay
 );
 
 
@@ -1903,23 +2174,25 @@ document.addEventListener(
     "keydown",
     event => {
 
-        const activeTag =
-            document.activeElement
-                ?.tagName
-                ?.toLowerCase();
+        const target =
+            event.target;
 
         if (
-            activeTag
-            ===
-            "select"
-            ||
-            activeTag
-            ===
-            "input"
-            ||
-            activeTag
-            ===
-            "textarea"
+            target
+            &&
+            (
+                target.tagName
+                ===
+                "INPUT"
+                ||
+                target.tagName
+                ===
+                "SELECT"
+                ||
+                target.tagName
+                ===
+                "TEXTAREA"
+            )
         ) {
 
             return;
@@ -1935,7 +2208,7 @@ document.addEventListener(
 
             stopAnimation();
 
-            previousHour();
+            previousFrame();
         }
 
         else if (
@@ -1948,7 +2221,7 @@ document.addEventListener(
 
             stopAnimation();
 
-            nextHour();
+            nextFrame();
         }
 
         else if (
@@ -1959,249 +2232,25 @@ document.addEventListener(
 
             event.preventDefault();
 
-            togglePlay();
+            toggleAnimation();
         }
     }
 );
 
 
-
-// ============================================================
-// LIVE MANIFEST REFRESH
-// ============================================================
-
-const LIVE_REFRESH_MS = 5000;
-let liveRefreshBusy = false;
+populateModelSelect();
 
 
-async function refreshSelectedModelInBackground() {
-
-    if (
-        liveRefreshBusy
-        ||
-        playTimer
-    ) {
-        return;
-    }
-
-    liveRefreshBusy = true;
-
-    try {
-
-        const modelId =
-            modelSelect.value;
-
-        const previousRegion =
-            regionSelect.value;
-
-        const previousProduct =
-            productSelect.value;
-
-        const previousFiles =
-            currentFiles.slice();
-
-        const previousIndex =
-            currentIndex;
-
-        const previousHour =
-            (
-                previousFiles.length > 0
-                ?
-                previousFiles[
-                    previousIndex
-                ]?.forecast_hour
-                :
-                null
-            );
-
-        const wasOnNewest =
-            (
-                previousFiles.length > 0
-                &&
-                previousIndex
-                ===
-                previousFiles.length - 1
-            );
-
-        const rawManifest =
-            await loadRawManifest(
-                modelId
-            );
-
-        const refreshed =
-            normalizeManifest(
-                rawManifest,
-                modelId
-            );
-
-        if (
-            !refreshed
-            ||
-            !Array.isArray(
-                refreshed.files
-            )
-            ||
-            refreshed.files.length === 0
-        ) {
-            return;
-        }
-
-        manifest = refreshed;
-
-        modelText.textContent =
-            manifest.model_name;
-
-        cycleText.textContent =
-            (
-                "Cycle "
-                +
-                manifest.cycle
-            );
-
-        setAvailability(
-            (
-                manifest.status
-                ===
-                "running"
-                ?
-                "loading"
-                :
-                "ready"
-            ),
-            (
-                manifest.status
-                ===
-                "running"
-                ?
-                "Updating"
-                :
-                "Ready"
-            )
-        );
-
-        populateRegions();
-
-        if (
-            [
-                ...regionSelect.options,
-            ].some(
-                option =>
-                    option.value
-                    ===
-                    previousRegion
-            )
-        ) {
-            regionSelect.value =
-                previousRegion;
-        }
-
-        populateProducts();
-
-        if (
-            [
-                ...productSelect.options,
-            ].some(
-                option =>
-                    option.value
-                    ===
-                    previousProduct
-            )
-        ) {
-            productSelect.value =
-                previousProduct;
-        }
-
-        const region =
-            regionSelect.value;
-
-        const product =
-            productSelect.value;
-
-        currentFiles =
-            goodFiles()
-                .filter(
-                    file =>
-                        file.region
-                        ===
-                        region
-                        &&
-                        file.product
-                        ===
-                        product
-                )
-                .sort(
-                    (
-                        a,
-                        b
-                    ) =>
-                        a.forecast_hour
-                        -
-                        b.forecast_hour
-                );
-
-        if (
-            currentFiles.length === 0
-        ) {
-            currentIndex = 0;
-            populateHourGrid();
-            showCurrentImage();
-            return;
-        }
-
-        if (wasOnNewest) {
-            currentIndex =
-                currentFiles.length - 1;
-        }
-
-        else if (
-            previousHour !== null
-        ) {
-
-            const matchedIndex =
-                currentFiles.findIndex(
-                    file =>
-                        file.forecast_hour
-                        ===
-                        previousHour
-                );
-
-            currentIndex =
-                (
-                    matchedIndex >= 0
-                    ?
-                    matchedIndex
-                    :
-                    Math.min(
-                        previousIndex,
-                        currentFiles.length - 1
-                    )
-                );
-        }
-
-        else {
-            currentIndex = 0;
-        }
-
-        populateHourGrid();
-        showCurrentImage();
-    }
-
-    catch (error) {
-        console.debug(
-            "Live manifest refresh failed:",
-            error
-        );
-    }
-
-    finally {
-        liveRefreshBusy = false;
-    }
-}
+loadModel(
+    state.modelId
+);
 
 
 setInterval(
-    refreshSelectedModelInBackground,
-    LIVE_REFRESH_MS
-);
+    () => {
 
-loadSelectedModel();
+        refreshCurrentModel();
+
+    },
+    30000
+);

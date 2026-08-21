@@ -731,41 +731,85 @@ function renderLegend(historicalSeasonYears, currentSeasonYear) {
 
 
 // ============================================================
-// MAIN
+// LIVE AUTOMATED STRATWIND CHART
 // ============================================================
+
+const STRATWIND_CHART_URL =
+    "https://storage.googleapis.com/project-166f07ba-7a61-4fa9-ae7-weather-charts/era5_august_daily_10hPa_60N.png";
+
 
 async function main() {
 
     try {
 
-        setStatus("Loading...", false);
-
-        const [bundle, latest] = await Promise.all([
-            fetchJson(BUNDLE_URL),
-            fetchJson(LATEST_URL),
-        ]);
-
-        const { seasons, currentSeasonYear } =
-            renderChart(bundle, latest);
-
-        renderStats(latest, seasons, currentSeasonYear);
-
         setStatus(
-            `Updated ${formatDate(latest.latest_date)} · ` +
-                `ERA5/ERA5T`,
+            "Loading latest ERA5 / GFS analysis...",
             false
+        );
+
+        const wrapper =
+            document.getElementById("caChartWrapper");
+
+        wrapper.innerHTML = "";
+
+        const image =
+            document.createElement("img");
+
+        image.className =
+            "ca-stratwind-image";
+
+        image.alt =
+            "ERA5 daily zonal wind at 10 hPa, 60 degrees North";
+
+        /*
+         * Cache-busting query ensures the browser gets the
+         * newest Cloud Storage image after each automated run.
+         */
+        image.src =
+            `${STRATWIND_CHART_URL}?v=${Date.now()}`;
+
+        image.addEventListener(
+            "load",
+            () => {
+
+                setStatus(
+                    "Automatically updated ERA5 / GFS analysis",
+                    false
+                );
+
+            }
+        );
+
+        image.addEventListener(
+            "error",
+            () => {
+
+                setStatus(
+                    "Could not load the latest stratwind chart.",
+                    true
+                );
+
+            }
+        );
+
+        wrapper.appendChild(
+            image
         );
 
     } catch (error) {
 
-        console.error("Polar vortex load failed:", error);
+        console.error(
+            "Polar vortex chart load failed:",
+            error
+        );
 
         setStatus(
-            "Could not load polar vortex data yet. " +
-                "The historical backfill may not have run.",
+            "Could not load the latest stratwind chart.",
             true
         );
+
     }
+
 }
 
 
