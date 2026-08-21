@@ -438,6 +438,30 @@ const hourGrid =
     );
 
 
+const forecastScrubber =
+    document.getElementById(
+        "forecastScrubber"
+    );
+
+
+const scrubberHourText =
+    document.getElementById(
+        "scrubberHourText"
+    );
+
+
+const scrubberStartText =
+    document.getElementById(
+        "scrubberStartText"
+    );
+
+
+const scrubberEndText =
+    document.getElementById(
+        "scrubberEndText"
+    );
+
+
 function addCacheBuster(
     url
 ) {
@@ -1448,7 +1472,98 @@ function updateNavigationButtons() {
 }
 
 
+function syncForecastScrubber() {
+
+    const files =
+        (
+            state.selectionFiles
+            ??
+            []
+        );
+
+    if (
+        files.length
+        ===
+        0
+    ) {
+
+        forecastScrubber.min =
+            "0";
+
+        forecastScrubber.max =
+            "0";
+
+        forecastScrubber.value =
+            "0";
+
+        forecastScrubber.disabled =
+            true;
+
+        scrubberHourText.textContent =
+            "—";
+
+        scrubberStartText.textContent =
+            "—";
+
+        scrubberEndText.textContent =
+            "—";
+
+        return;
+    }
+
+    forecastScrubber.min =
+        "0";
+
+    forecastScrubber.max =
+        String(
+            files.length - 1
+        );
+
+    forecastScrubber.step =
+        "1";
+
+    forecastScrubber.value =
+        String(
+            state.frameIndex
+        );
+
+    forecastScrubber.disabled =
+        (
+            files.length
+            <=
+            1
+        );
+
+    const current =
+        files[
+            state.frameIndex
+        ];
+
+    scrubberHourText.textContent =
+        formatForecastHour(
+            current.forecast_hour
+        );
+
+    scrubberStartText.textContent =
+        formatForecastHour(
+            files[
+                0
+            ].forecast_hour
+        );
+
+    scrubberEndText.textContent =
+        formatForecastHour(
+            files[
+                files.length - 1
+            ].forecast_hour
+        );
+}
+
+
 function renderHourGrid() {
+
+    syncForecastScrubber();
+
 
     hourGrid.innerHTML =
         "";
@@ -2254,3 +2369,47 @@ setInterval(
     },
     30000
 );
+
+forecastScrubber.addEventListener(
+    "input",
+    () => {
+
+        if (
+            !state.selectionFiles
+            ||
+            state.selectionFiles.length
+            ===
+            0
+        ) {
+
+            return;
+        }
+
+        stopAnimation();
+
+        const index =
+            Math.max(
+                0,
+                Math.min(
+                    state.selectionFiles.length - 1,
+                    Number(
+                        forecastScrubber.value
+                    )
+                )
+            );
+
+        state.frameIndex =
+            index;
+
+        state.forecastHour =
+            Number(
+                state.selectionFiles[
+                    index
+                ].forecast_hour
+            );
+
+        renderCurrentFrame();
+    }
+);
+
+

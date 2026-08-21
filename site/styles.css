@@ -492,3 +492,187 @@ button:disabled {
         grid-template-columns: repeat(2, 1fr);
     }
 }
+
+
+/* ============================================================
+   SECTION RAIL — MASSACHUSETTSWX
+   ============================================================ */
+
+.section-tabs {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+
+    width: auto;
+    padding: 8px 18px;
+
+    overflow-x: auto;
+
+    background: #10161d;
+
+    border-top: 1px solid rgba(255, 255, 255, 0.06);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.10);
+}
+
+.section-tab {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+
+    min-height: 36px;
+    padding: 7px 15px;
+
+    flex: 0 0 auto;
+
+    color: #aeb8c5;
+    background: transparent;
+
+    border: 1px solid transparent;
+    border-radius: 18px;
+
+    text-decoration: none;
+    white-space: nowrap;
+
+    font-size: 14px;
+    font-weight: 700;
+
+    transition:
+        background 0.15s ease,
+        border-color 0.15s ease,
+        color 0.15s ease;
+}
+
+.section-tab:hover:not(.disabled) {
+    color: #ffffff;
+    background: #1b2732;
+    border-color: #344657;
+}
+
+.section-tab.active {
+    color: #ffffff;
+    background: #22394d;
+    border-color: #4d7899;
+    box-shadow: none;
+}
+
+.section-tab.analysis-tab {
+    margin-left: auto;
+}
+
+.section-tab.analysis-tab:not(.active) {
+    color: #b7d6eb;
+    border-color: #304b60;
+    background: #142431;
+}
+
+.section-tab.disabled {
+    opacity: 0.55;
+    cursor: default;
+}
+
+
+/* ============================================================
+   FORECAST TIMELINE / SCRUBBER
+   ============================================================ */
+
+.forecast-scrubber-panel {
+    margin-top: 10px;
+    padding: 10px 12px 8px;
+
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 7px;
+}
+
+.forecast-scrubber-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+
+    margin-bottom: 7px;
+
+    color: var(--muted);
+    font-size: 12px;
+    font-weight: 650;
+}
+
+.forecast-scrubber-header strong {
+    color: var(--text);
+    font-size: 14px;
+    font-variant-numeric: tabular-nums;
+}
+
+.forecast-scrubber {
+    display: block;
+
+    width: 100%;
+    height: 20px;
+    margin: 0;
+
+    cursor: ew-resize;
+
+    accent-color: #65b9e8;
+}
+
+.forecast-scrubber:disabled {
+    cursor: default;
+    opacity: 0.45;
+}
+
+.forecast-scrubber-scale {
+    display: grid;
+    grid-template-columns:
+        auto
+        1fr
+        auto;
+
+    align-items: center;
+    gap: 10px;
+
+    margin-top: 3px;
+
+    color: var(--muted);
+    font-size: 10px;
+    font-variant-numeric: tabular-nums;
+}
+
+.forecast-scrubber-scale span:nth-child(2) {
+    text-align: center;
+    opacity: 0.75;
+}
+
+
+@media (max-width: 700px) {
+
+    .section-tabs {
+        padding:
+            7px
+            10px;
+    }
+
+    .section-tab {
+        padding:
+            6px
+            11px;
+
+        font-size: 13px;
+    }
+
+    .section-tab.analysis-tab {
+        margin-left: 0;
+    }
+
+    .forecast-scrubber-scale span:nth-child(2) {
+        display: none;
+    }
+
+    .forecast-scrubber-scale {
+        grid-template-columns:
+            1fr
+            1fr;
+    }
+
+    .forecast-scrubber-scale span:last-child {
+        text-align: right;
+    }
+}
