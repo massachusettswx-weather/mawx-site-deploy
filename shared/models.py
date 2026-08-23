@@ -30,7 +30,7 @@ MODELS = {
         "forecast_start": 0,
         "forecast_end": 384,
 
-        "workers": 2,
+        "workers": 4,
 
         # ----------------------------------------------------
         # FORECAST SCHEDULE
@@ -116,7 +116,7 @@ MODELS = {
         "forecast_start": 0,
         "forecast_end": 360,
 
-        "workers": 2,
+        "workers": 4,
 
         # ----------------------------------------------------
         # IFS FORECAST SCHEDULE
@@ -217,7 +217,7 @@ MODELS = {
         "forecast_start": 0,
         "forecast_end": 360,
 
-        "workers": 2,
+        "workers": 4,
 
         "forecast_schedule": {
             "segments": [
@@ -250,6 +250,120 @@ MODELS = {
         "extra_products": [],
 
         "sequence_enabled": True,
+    },
+
+    # ========================================================
+    # GOOGLE DEEPMIND FNV3 CYCLONES
+    # ========================================================
+
+    "fnv3": {
+        "name": "Google DeepMind FNV3",
+        "short_name": "FNV3",
+
+        "center": "Google DeepMind",
+        "family": "weathernext_cyclones",
+
+        "deterministic": False,
+        "ensemble": True,
+        "members": 50,
+
+        "native_resolution": "0.25°",
+
+        "cycles": [
+            0,
+            6,
+            12,
+            18,
+        ],
+
+        "forecast_start": 0,
+        "forecast_end": 360,
+
+        "workers": 1,
+
+        "forecast_schedule": {
+            "segments": [
+                {
+                    "start": 0,
+                    "end": 360,
+                    "step": 6,
+                },
+            ],
+        },
+
+        "download_family": (
+            "fnv3_cyclone_tracks"
+        ),
+
+        "backend_enabled": True,
+
+        "readiness": {
+            "method": (
+                "fnv3_cyclone_feed"
+            ),
+            "required_step": 360,
+        },
+
+        "extra_products": [],
+
+        "sequence_enabled": False,
+    },
+
+    # ========================================================
+    # GOOGLE DEEPMIND FNV3-L CYCLONES
+    # ========================================================
+
+    "fnv3_large": {
+        "name": "Google DeepMind FNV3-L",
+        "short_name": "FNV3-L",
+
+        "center": "Google DeepMind",
+        "family": "weathernext_cyclones",
+
+        "deterministic": False,
+        "ensemble": True,
+        "members": 1000,
+
+        "native_resolution": "0.25°",
+
+        "cycles": [
+            0,
+            6,
+            12,
+            18,
+        ],
+
+        "forecast_start": 0,
+        "forecast_end": 360,
+
+        "workers": 1,
+
+        "forecast_schedule": {
+            "segments": [
+                {
+                    "start": 0,
+                    "end": 360,
+                    "step": 6,
+                },
+            ],
+        },
+
+        "download_family": (
+            "fnv3_large_cyclone_tracks"
+        ),
+
+        "backend_enabled": True,
+
+        "readiness": {
+            "method": (
+                "fnv3_large_cyclone_feed"
+            ),
+            "required_step": 360,
+        },
+
+        "extra_products": [],
+
+        "sequence_enabled": False,
     },
 }
 
