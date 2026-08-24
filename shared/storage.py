@@ -703,6 +703,294 @@ def product_exists(
     )
 
 
+
+# ============================================================
+# INDIVIDUAL FRAME STREAMING
+# ============================================================
+
+def _infer_cycle_identity_from_output_dir(
+    *,
+    model: str,
+    cycle_output_dir: Path | str,
+) -> tuple[str, int] | None:
+    """
+    Infer YYYYMMDD / HH from the canonical temporary output layout:
+
+        .../output/<model>/YYYYMMDD/HH/
+
+    Returns None for non-operational/manual output directories.
+    """
+
+    model = (
+        str(model)
+        .lower()
+        .strip()
+    )
+
+    path = (
+        Path(
+            cycle_output_dir
+        )
+        .expanduser()
+        .resolve()
+    )
+
+    parts = (
+        path.parts
+    )
+
+    for index in range(
+        len(parts) - 3
+    ):
+
+        if (
+            parts[index]
+            != "output"
+        ):
+
+            continue
+
+        if (
+            parts[
+                index + 1
+            ]
+            != model
+        ):
+
+            continue
+
+        cycle_date = (
+            parts[
+                index + 2
+            ]
+        )
+
+        cycle_hour_text = (
+            parts[
+                index + 3
+            ]
+        )
+
+        if (
+            len(cycle_date)
+            != 8
+            or
+            not cycle_date.isdigit()
+        ):
+
+            return None
+
+        if (
+            not cycle_hour_text.isdigit()
+        ):
+
+            return None
+
+        cycle_hour = int(
+            cycle_hour_text
+        )
+
+        if (
+            cycle_hour
+            not in (
+                0,
+                6,
+                12,
+                18,
+            )
+        ):
+
+            return None
+
+        return (
+            cycle_date,
+            cycle_hour,
+        )
+
+    return None
+
+
+def upload_rendered_frame(
+    *,
+    local_path: Path | str,
+    model: str,
+    product: str,
+    region: str,
+    forecast_hour: int,
+    cycle_output_dir: Path | str,
+    delete_after_upload: bool = True,
+    publish_progress: bool = True,
+) -> dict:
+    """
+    Upload ONE rendered PNG immediately after it is created.
+
+    This is the fast-path used by shared.runner. It avoids waiting for
+    every product and region in an entire forecast hour to finish.
+
+    If cycle_output_dir does not look like an operational
+    .../output/model/YYYYMMDD/HH directory, streaming is skipped and the
+    local PNG is left in place for normal/manual workflows.
+
+    On successful upload the local PNG may be deleted immediately.
+    Metadata publication is coalesced by shared.publish so parallel
+    product workers do not rewrite current.json for every single PNG.
+    """
+
+    local_path = Path(
+        local_path
+    )
+
+    identity = (
+        _infer_cycle_identity_from_output_dir(
+            model=model,
+            cycle_output_dir=(
+                cycle_output_dir
+            ),
+        )
+    )
+
+    result = {
+        "streamed": False,
+        "uploaded": False,
+        "removed": False,
+        "progress_published": False,
+        "skipped": False,
+        "error": None,
+    }
+
+    if identity is None:
+
+        result[
+            "skipped"
+        ] = True
+
+        return result
+
+    cycle_date, cycle_hour = (
+        identity
+    )
+
+    if (
+        not local_path.exists()
+    ):
+
+        result[
+            "error"
+        ] = (
+            f"Rendered frame does not exist: "
+            f"{local_path}"
+        )
+
+        return result
+
+    try:
+
+        upload_product(
+            local_path=(
+                local_path
+            ),
+            model=model,
+            cycle_date=(
+                cycle_date
+            ),
+            cycle_hour=(
+                cycle_hour
+            ),
+            product=product,
+            region=region,
+            forecast_hour=(
+                forecast_hour
+            ),
+        )
+
+        result[
+            "uploaded"
+        ] = True
+
+        result[
+            "streamed"
+        ] = True
+
+        print(
+            f"STREAMED "
+            f"{str(model).upper()} "
+            f"{product}/"
+            f"{region}/"
+            f"f{int(forecast_hour):03d}"
+        )
+
+        if delete_after_upload:
+
+            local_path.unlink(
+                missing_ok=True
+            )
+
+            result[
+                "removed"
+            ] = True
+
+        if publish_progress:
+
+            try:
+
+                from shared.publish import (
+                    publish_frame_progress,
+                )
+
+                publish_result = (
+                    publish_frame_progress(
+                        model=model,
+                        cycle_date=(
+                            cycle_date
+                        ),
+                        cycle_hour=(
+                            cycle_hour
+                        ),
+                        forecast_hour=(
+                            forecast_hour
+                        ),
+                    )
+                )
+
+                result[
+                    "progress_published"
+                ] = bool(
+                    publish_result.get(
+                        "published",
+                        False,
+                    )
+                )
+
+            except Exception as error:
+
+                print(
+                    f"{str(model).upper()} "
+                    f"{product}/"
+                    f"{region}/"
+                    f"f{int(forecast_hour):03d}: "
+                    f"FRAME PROGRESS PUBLISH FAILED: "
+                    f"{error}"
+                )
+
+        return result
+
+    except Exception as error:
+
+        result[
+            "error"
+        ] = str(
+            error
+        )
+
+        print(
+            f"FRAME STREAM FAILED "
+            f"{local_path}: "
+            f"{error}"
+        )
+
+        return result
+
+
 # ============================================================
 # FORECAST-HOUR OUTPUT UPLOAD
 # ============================================================
@@ -715,6 +1003,8 @@ def upload_forecast_hour_outputs(
     forecast_hour: int,
     cycle_output_dir: Path | str,
     delete_after_upload: bool = True,
+    expected_products=None,
+    expected_regions=None,
 ) -> dict:
     """
     Upload all PNGs produced for one forecast hour.
@@ -760,9 +1050,71 @@ def upload_forecast_hour_outputs(
         print(
             f"{model.upper()} "
             f"{forecast_tag}: "
-            f"no local PNGs found "
-            f"for upload"
+            f"no local PNGs remain; "
+            f"frames may already have streamed"
         )
+
+        # ----------------------------------------------------
+        # END-OF-HOUR COMPLETION
+        #
+        # Fast frame streaming uploads and deletes PNGs as soon
+        # as they are rendered. Therefore zero local PNGs here is
+        # normal and must NOT prevent the forecast hour from being
+        # marked complete.
+        #
+        # publish_forecast_hour_progress() verifies that the hour
+        # actually exists in the GCS inventory before marking it.
+        # ----------------------------------------------------
+
+        try:
+
+            from shared.publish import (
+                publish_forecast_hour_progress,
+            )
+
+            progress_result = (
+                publish_forecast_hour_progress(
+                    model=model,
+                    cycle_date=(
+                        cycle_date
+                    ),
+                    cycle_hour=(
+                        cycle_hour
+                    ),
+                    forecast_hour=(
+                        forecast_hour
+                    ),
+                    expected_products=(
+                        expected_products
+                    ),
+                    expected_regions=(
+                        expected_regions
+                    ),
+                )
+            )
+
+            result[
+                "progress_published"
+            ] = bool(
+                progress_result.get(
+                    "published",
+                    False,
+                )
+            )
+
+        except Exception as error:
+
+            result[
+                "progress_publish_failed"
+            ] += 1
+
+            print(
+                f"{model.upper()} "
+                f"{forecast_tag}: "
+                f"END-OF-HOUR PROGRESS "
+                f"PUBLISH FAILED: "
+                f"{error}"
+            )
 
         return result
 
@@ -896,6 +1248,12 @@ def upload_forecast_hour_outputs(
                     ),
                     forecast_hour=(
                         forecast_hour
+                    ),
+                    expected_products=(
+                        expected_products
+                    ),
+                    expected_regions=(
+                        expected_regions
                     ),
                 )
             )

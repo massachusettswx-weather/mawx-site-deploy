@@ -1074,6 +1074,8 @@ def publish_forecast_hour_progress(
     cycle_date,
     cycle_hour,
     forecast_hour,
+    expected_products=None,
+    expected_regions=None,
 ):
     """
     Publish the model cycle while it is still running.
@@ -1153,6 +1155,165 @@ def publish_forecast_hour_progress(
             f"f{forecast_hour:03d} "
             f"was uploaded but is missing "
             f"from the GCS inventory."
+        )
+
+    # ========================================================
+    # EXACT EXPECTED FRAME INVENTORY VALIDATION
+    #
+    # "available" means at least one frame exists.
+    # "complete" means every expected product/region frame for
+    # this forecast hour exists in the GCS inventory.
+    # ========================================================
+
+    if (
+        expected_products is not None
+        and
+        expected_regions is not None
+    ):
+
+        expected_products = list(
+            dict.fromkeys(
+                str(product)
+                for product in expected_products
+            )
+        )
+
+        expected_regions = list(
+            dict.fromkeys(
+                str(region)
+                for region in expected_regions
+            )
+        )
+
+        expected_pairs = {
+            (
+                product,
+                region,
+            )
+            for product in expected_products
+            for region in expected_regions
+        }
+
+        actual_pairs = set()
+
+        for file_record in progress.get(
+            "files",
+            [],
+        ):
+
+            try:
+
+                file_hour = int(
+                    file_record.get(
+                        "forecast_hour"
+                    )
+                )
+
+            except (
+                TypeError,
+                ValueError,
+            ):
+
+                continue
+
+            if file_hour != forecast_hour:
+                continue
+
+            product = file_record.get(
+                "product"
+            )
+
+            region = file_record.get(
+                "region"
+            )
+
+            if (
+                product is None
+                or
+                region is None
+            ):
+                continue
+
+            actual_pairs.add(
+                (
+                    str(product),
+                    str(region),
+                )
+            )
+
+        missing_pairs = sorted(
+            expected_pairs
+            -
+            actual_pairs
+        )
+
+        present_count = len(
+            expected_pairs
+            &
+            actual_pairs
+        )
+
+        expected_count = len(
+            expected_pairs
+        )
+
+        if missing_pairs:
+
+            print(
+                f"{model.upper()} "
+                f"{cycle_id}: "
+                f"f{forecast_hour:03d} "
+                f"PARTIAL — "
+                f"{present_count}/"
+                f"{expected_count} "
+                f"expected frames present; "
+                f"missing="
+                f"{len(missing_pairs)}"
+            )
+
+            print(
+                "First missing frames: "
+                +
+                ", ".join(
+                    f"{product}/{region}"
+                    for product, region
+                    in missing_pairs[:10]
+                )
+            )
+
+            return {
+                "published": False,
+                "reason": (
+                    "forecast-hour inventory incomplete"
+                ),
+                "cycle": cycle_id,
+                "forecast_hour": forecast_hour,
+                "expected_count": (
+                    expected_count
+                ),
+                "present_count": (
+                    present_count
+                ),
+                "missing_count": (
+                    len(missing_pairs)
+                ),
+                "missing": [
+                    {
+                        "product": product,
+                        "region": region,
+                    }
+                    for product, region
+                    in missing_pairs
+                ],
+            }
+
+        print(
+            f"{model.upper()} "
+            f"{cycle_id}: "
+            f"f{forecast_hour:03d} "
+            f"inventory verified "
+            f"{present_count}/"
+            f"{expected_count}"
         )
 
     progress_object = (

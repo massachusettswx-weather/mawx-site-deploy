@@ -49,8 +49,18 @@ from shared.models import (
 # REGIONS is the source of truth for the operational region set.
 # Python dictionaries preserve insertion order, so the website/backend
 # region ordering follows shared/regions.py.
-OPERATIONAL_REGIONS = list(
+_all_operational_regions = list(
     REGIONS.keys()
+)
+
+OPERATIONAL_REGIONS = (
+    ["conus"]
+    +
+    [
+        region
+        for region in _all_operational_regions
+        if region != "conus"
+    ]
 )
 
 

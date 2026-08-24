@@ -24,6 +24,10 @@ from shared.runner import (
     get_download_products_for_model,
 )
 
+from shared.product_cadence import (
+    products_for_forecast_hour,
+)
+
 from shared.sequence import (
     SequenceStreamProcessor,
 )
@@ -280,6 +284,8 @@ def run_gfs(
         ),
     }
 
+    stopped_at_upstream_frontier = False
+
     try:
 
         for (
@@ -325,11 +331,16 @@ def run_gfs(
 
                 if grib_path is None:
 
-                    raise RuntimeError(
+                    print(
                         f"GFS "
                         f"f{forecast_hour:03d}: "
-                        f"not available"
+                        f"not available upstream yet; "
+                        f"stopping cleanly at upstream frontier"
                     )
+
+                    stopped_at_upstream_frontier = True
+
+                    break
 
                 if (
                     not grib_path.exists()
@@ -392,6 +403,23 @@ def run_gfs(
                         )
                     )
 
+                instantaneous_failed = int(
+                    instant_result.get(
+                        "failed",
+                        0,
+                    )
+                )
+
+                if instantaneous_failed > 0:
+
+                    raise RuntimeError(
+                        f"GFS "
+                        f"f{forecast_hour:03d}: "
+                        f"{instantaneous_failed} "
+                        f"instantaneous product outputs failed; "
+                        f"forecast hour will NOT be published"
+                    )
+
                 # ====================================================
                 # SEQUENCE PRODUCTS
                 # ====================================================
@@ -422,9 +450,79 @@ def run_gfs(
                         )
                     )
 
+                sequence_failed = int(
+                    sequence_result.get(
+                        "failed",
+                        0,
+                    )
+                )
+
+                if sequence_failed > 0:
+
+                    raise RuntimeError(
+                        f"GFS "
+                        f"f{forecast_hour:03d}: "
+                        f"{sequence_failed} "
+                        f"sequence product outputs failed; "
+                        f"forecast hour will NOT be published"
+                    )
+
                 # ====================================================
                 # GCS UPLOAD + LOCAL PNG CLEANUP
                 # ====================================================
+
+                expected_hour_products = (
+                    products_for_forecast_hour(
+                        model="gfs",
+                        products=(
+                            get_default_products_for_model(
+                                "gfs"
+                            )
+                        ),
+                        forecast_hour=(
+                            forecast_hour
+                        ),
+                    )
+                )
+
+                # Sequence products use their own cadence and
+                # processing rules. Add them only when this hour's
+                # sequence processor actually produced or reused
+                # sequence frames.
+                if (
+                    int(
+                        sequence_result.get(
+                            "created",
+                            0,
+                        )
+                    )
+                    +
+                    int(
+                        sequence_result.get(
+                            "skipped",
+                            0,
+                        )
+                    )
+                    > 0
+                ):
+
+                    expected_hour_products = (
+                        list(
+                            expected_hour_products
+                        )
+                        +
+                        list(
+                            get_sequence_products_for_model(
+                                "gfs"
+                            )
+                        )
+                    )
+
+                expected_hour_products = list(
+                    dict.fromkeys(
+                        expected_hour_products
+                    )
+                )
 
                 upload_result = (
                     upload_forecast_hour_outputs(
@@ -442,6 +540,12 @@ def run_gfs(
                             cycle_output_dir
                         ),
                         delete_after_upload=True,
+                        expected_products=(
+                            expected_hour_products
+                        ),
+                        expected_regions=(
+                            OPERATIONAL_REGIONS
+                        ),
                     )
                 )
 
@@ -555,10 +659,65 @@ def run_gfs(
             cycle_output_dir
         )
 
+    remaining_this_invocation = max(
+        0,
+        (
+            len(
+                forecast_hours
+            )
+            -
+            result[
+                "forecast_hours_processed"
+            ]
+        ),
+    )
+
+    if (
+        result[
+            "failed"
+        ]
+        > 0
+        or
+        result[
+            "cloud_upload_failed"
+        ]
+        > 0
+    ):
+
+        pipeline_status = "failed"
+
+    elif (
+        stopped_at_upstream_frontier
+        or
+        remaining_this_invocation
+        > 0
+    ):
+
+        pipeline_status = (
+            "waiting_upstream"
+        )
+
+    else:
+
+        pipeline_status = "complete"
+
+    result[
+        "status"
+    ] = pipeline_status
+
+    result[
+        "remaining_this_invocation"
+    ] = remaining_this_invocation
+
+    result[
+        "stopped_at_upstream_frontier"
+    ] = stopped_at_upstream_frontier
+
     print()
     print("=" * 70)
     print(
-        "GFS STREAMING PIPELINE COMPLETE"
+        f"GFS STREAMING PIPELINE "
+        f"{pipeline_status.upper()}"
     )
     print("=" * 70)
 
@@ -602,6 +761,21 @@ def run_gfs(
     print(
         f"Local PNGs removed: "
         f"{result['local_png_removed']}"
+    )
+
+    print(
+        f"Status: "
+        f"{result['status']}"
+    )
+
+    print(
+        f"Remaining this invocation: "
+        f"{result['remaining_this_invocation']}"
+    )
+
+    print(
+        f"Stopped at upstream frontier: "
+        f"{result['stopped_at_upstream_frontier']}"
     )
 
     print("=" * 70)

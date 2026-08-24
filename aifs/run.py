@@ -10,12 +10,20 @@ from shared.runner import (
     get_download_products_for_model,
 )
 
+from shared.product_cadence import (
+    products_for_forecast_hour,
+)
+
 from shared.sequence import (
     SequenceStreamProcessor,
 )
 
 from shared.resume import (
     get_remaining_forecast_hours,
+)
+
+from shared.models import (
+    get_forecast_hours,
 )
 
 from shared.storage import (
@@ -34,21 +42,6 @@ from shared.storage import (
 OVERWRITE_EXISTING = False
 
 MIN_FREE_DISK_GB = 3.0
-
-
-# ============================================================
-# AIFS FORECAST RANGE
-#
-# AIFS runs every 6 hours through f360.
-# ============================================================
-
-FORECAST_HOURS = list(
-    range(
-        0,
-        361,
-        6,
-    )
-)
 
 
 # ============================================================
@@ -111,8 +104,15 @@ def run_aifs(
         )
     )
 
-    all_forecast_hours = list(
-        FORECAST_HOURS
+    all_forecast_hours = (
+        get_forecast_hours(
+            "aifs",
+            cycle_hour=(
+                identity[
+                    "hour"
+                ]
+            ),
+        )
     )
 
     if identity["date"] != "latest":
@@ -191,12 +191,12 @@ def run_aifs(
 
     print(
         f"First: "
-        f"f{FORECAST_HOURS[0]:03d}"
+        f"f{all_forecast_hours[0]:03d}"
     )
 
     print(
         f"Last: "
-        f"f{FORECAST_HOURS[-1]:03d}"
+        f"f{all_forecast_hours[-1]:03d}"
     )
 
     print(
@@ -275,6 +275,8 @@ def run_aifs(
         ),
     }
 
+    stopped_at_upstream_frontier = False
+
     try:
 
         for (
@@ -316,6 +318,19 @@ def run_aifs(
                         cycle=cycle,
                     )
                 )
+
+                if grib_path is None:
+
+                    print(
+                        f"AIFS "
+                        f"f{forecast_hour:03d}: "
+                        f"not available upstream yet; "
+                        f"stopping cleanly at upstream frontier"
+                    )
+
+                    stopped_at_upstream_frontier = True
+
+                    break
 
                 if (
                     not grib_path.exists()
@@ -380,6 +395,24 @@ def run_aifs(
                         )
                     )
 
+                instantaneous_failed = int(
+                    instant_result.get(
+                        "failed",
+                        0,
+                    )
+                )
+
+                if instantaneous_failed > 0:
+
+                    raise RuntimeError(
+                        f"AIFS "
+                        f"f{forecast_hour:03d}: "
+                        f"{instantaneous_failed} "
+                        f"instantaneous plots failed; "
+                        f"forecast hour will NOT "
+                        f"be published."
+                    )
+
                 sequence_result = (
                     sequence_processor.process_hour(
                         step=(
@@ -407,6 +440,77 @@ def run_aifs(
                         )
                     )
 
+                sequence_failed = int(
+                    sequence_result.get(
+                        "failed",
+                        0,
+                    )
+                )
+
+                if sequence_failed > 0:
+
+                    raise RuntimeError(
+                        f"AIFS "
+                        f"f{forecast_hour:03d}: "
+                        f"{sequence_failed} "
+                        f"sequence plots failed; "
+                        f"forecast hour will NOT "
+                        f"be published."
+                    )
+
+                expected_hour_products = (
+                    products_for_forecast_hour(
+                        model="aifs",
+                        products=(
+                            get_default_products_for_model(
+                                "aifs"
+                            )
+                        ),
+                        forecast_hour=(
+                            forecast_hour
+                        ),
+                    )
+                )
+
+                # Sequence products use their own cadence and
+                # processing rules. Add them only when this hour's
+                # sequence processor actually produced or reused
+                # sequence frames.
+                if (
+                    int(
+                        sequence_result.get(
+                            "created",
+                            0,
+                        )
+                    )
+                    +
+                    int(
+                        sequence_result.get(
+                            "skipped",
+                            0,
+                        )
+                    )
+                    > 0
+                ):
+
+                    expected_hour_products = (
+                        list(
+                            expected_hour_products
+                        )
+                        +
+                        list(
+                            get_sequence_products_for_model(
+                                "aifs"
+                            )
+                        )
+                    )
+
+                expected_hour_products = list(
+                    dict.fromkeys(
+                        expected_hour_products
+                    )
+                )
+
                 upload_result = (
                     upload_forecast_hour_outputs(
                         model="aifs",
@@ -432,6 +536,12 @@ def run_aifs(
                         ),
 
                         delete_after_upload=True,
+                        expected_products=(
+                            expected_hour_products
+                        ),
+                        expected_regions=(
+                            OPERATIONAL_REGIONS
+                        ),
                     )
                 )
 
@@ -544,8 +654,62 @@ def run_aifs(
     print()
     print("=" * 70)
 
+    remaining_this_invocation = max(
+        0,
+        (
+            len(
+                forecast_hours
+            )
+            -
+            result[
+                "forecast_hours_processed"
+            ]
+        ),
+    )
+
+    if (
+        result[
+            "failed"
+        ]
+        > 0
+        or
+        result[
+            "cloud_upload_failed"
+        ]
+        > 0
+    ):
+
+        pipeline_status = "failed"
+
+    elif (
+        stopped_at_upstream_frontier
+        or
+        remaining_this_invocation
+        > 0
+    ):
+
+        pipeline_status = (
+            "waiting_upstream"
+        )
+
+    else:
+
+        pipeline_status = "complete"
+
+    result[
+        "status"
+    ] = pipeline_status
+
+    result[
+        "remaining_this_invocation"
+    ] = remaining_this_invocation
+
+    result[
+        "stopped_at_upstream_frontier"
+    ] = stopped_at_upstream_frontier
+
     print(
-        "AIFS STREAMING PIPELINE COMPLETE"
+        f"AIFS STREAMING PIPELINE {pipeline_status.upper()}"
     )
 
     print("=" * 70)
@@ -590,6 +754,21 @@ def run_aifs(
     print(
         f"Local PNGs removed: "
         f"{result['local_png_removed']}"
+    )
+
+    print(
+        f"Status: "
+        f"{result['status']}"
+    )
+
+    print(
+        f"Remaining this invocation: "
+        f"{result['remaining_this_invocation']}"
+    )
+
+    print(
+        f"Stopped at upstream frontier: "
+        f"{result['stopped_at_upstream_frontier']}"
     )
 
     print("=" * 70)

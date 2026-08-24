@@ -18,14 +18,22 @@ from shared.runner import (
     get_download_products_for_model,
 )
 
+from shared.product_cadence import (
+    products_for_forecast_hour,
+)
+
 from shared.sequence import (
     SequenceStreamProcessor,
 )
 
+from shared.resume import (
+    get_remaining_forecast_hours,
+)
+
 from shared.storage import (
     get_local_root,
-    upload_file,
     delete_local,
+    upload_forecast_hour_outputs,
 )
 
 
@@ -98,122 +106,6 @@ def check_working_disk_space():
 
 
 # ============================================================
-# CLOUD UPLOAD + LOCAL DELETE
-# ============================================================
-
-def upload_and_remove_step_outputs(
-    *,
-    cycle_output_dir,
-    cycle_name,
-    step,
-):
-    """
-    Upload every PNG generated for one forecast hour.
-
-    Local PNGs are removed only AFTER the corresponding GCS upload
-    succeeds.
-    """
-
-    cycle_output_dir = Path(
-        cycle_output_dir
-    )
-
-    forecast_tag = (
-        f"f{int(step):03d}"
-    )
-
-    png_files = sorted(
-        cycle_output_dir.rglob(
-            f"*{forecast_tag}.png"
-        )
-    )
-
-    uploaded = 0
-    failed = 0
-    removed = 0
-
-    if not png_files:
-
-        print(
-            f"f{int(step):03d}: "
-            f"no PNG files found for upload"
-        )
-
-        return {
-            "uploaded": 0,
-            "failed": 0,
-            "removed": 0,
-        }
-
-    print()
-    print(
-        f"Uploading "
-        f"{len(png_files)} "
-        f"f{int(step):03d} products..."
-    )
-
-    for local_path in (
-        png_files
-    ):
-
-        relative_path = (
-            local_path.relative_to(
-                cycle_output_dir
-            )
-        )
-
-        object_name = (
-            f"products/"
-            f"ifs/"
-            f"{cycle_name}/"
-            f"{relative_path.as_posix()}"
-        )
-
-        try:
-
-            upload_file(
-                local_path=local_path,
-                object_name=object_name,
-                content_type="image/png",
-            )
-
-            uploaded += 1
-
-            # ------------------------------------------------
-            # DELETE PNG ONLY AFTER SUCCESSFUL CLOUD UPLOAD
-            # ------------------------------------------------
-
-            local_path.unlink(
-                missing_ok=True
-            )
-
-            removed += 1
-
-        except Exception as error:
-
-            failed += 1
-
-            print(
-                f"UPLOAD FAILED: "
-                f"{relative_path}: "
-                f"{error}"
-            )
-
-    print(
-        f"f{int(step):03d} upload: "
-        f"uploaded={uploaded}, "
-        f"failed={failed}, "
-        f"local_removed={removed}"
-    )
-
-    return {
-        "uploaded": uploaded,
-        "failed": failed,
-        "removed": removed,
-    }
-
-
-# ============================================================
 # REMOVE EMPTY OUTPUT DIRECTORIES
 # ============================================================
 
@@ -266,6 +158,47 @@ def remove_empty_directories(
 # IFS STREAMING PIPELINE
 # ============================================================
 
+# ============================================================
+# CYCLE IDENTITY
+# ============================================================
+
+def get_cycle_identity(
+    cycle,
+):
+
+    if cycle is None:
+
+        return {
+            "name": "latest",
+            "date": "latest",
+            "hour": 0,
+        }
+
+    return {
+        "name": cycle.get(
+            "id",
+            (
+                f"{cycle.get('date', 'latest')}_"
+                f"{int(cycle.get('hour', 0)):02d}z"
+            ),
+        ),
+
+        "date": str(
+            cycle.get(
+                "date",
+                "latest",
+            )
+        ),
+
+        "hour": int(
+            cycle.get(
+                "hour",
+                0,
+            )
+        ),
+    }
+
+
 def run_ifs(
     cycle=None,
 ):
@@ -311,12 +244,41 @@ def run_ifs(
     # FORECAST HOURS
     # --------------------------------------------------------
 
-    forecast_hours = (
+    identity = (
+        get_cycle_identity(
+            cycle
+        )
+    )
+
+    all_forecast_hours = (
         get_forecast_hours(
             "ifs",
             cycle_hour=cycle_hour,
         )
     )
+
+    if identity["date"] != "latest":
+
+        forecast_hours = (
+            get_remaining_forecast_hours(
+                model="ifs",
+                cycle_date=(
+                    identity["date"]
+                ),
+                cycle_hour=(
+                    identity["hour"]
+                ),
+                forecast_hours=(
+                    all_forecast_hours
+                ),
+            )
+        )
+
+    else:
+
+        forecast_hours = (
+            all_forecast_hours
+        )
 
     # --------------------------------------------------------
     # PRODUCTS
@@ -434,6 +396,8 @@ def run_ifs(
     # PROCESS ONE FORECAST HOUR AT A TIME
     # ========================================================
 
+    stopped_at_upstream_frontier = False
+
     try:
 
         for (
@@ -475,6 +439,19 @@ def run_ifs(
                         cycle=cycle,
                     )
                 )
+
+                if grib_path is None:
+
+                    print(
+                        f"IFS "
+                        f"f{forecast_hour:03d}: "
+                        f"not available upstream yet; "
+                        f"stopping cleanly at upstream frontier"
+                    )
+
+                    stopped_at_upstream_frontier = True
+
+                    break
 
                 if (
                     not grib_path.exists()
@@ -540,6 +517,24 @@ def run_ifs(
                     "failed"
                 ]
 
+                instantaneous_failed = int(
+                    instant_result.get(
+                        "failed",
+                        0,
+                    )
+                )
+
+                if instantaneous_failed > 0:
+
+                    raise RuntimeError(
+                        f"IFS "
+                        f"f{forecast_hour:03d}: "
+                        f"{instantaneous_failed} "
+                        f"instantaneous plots failed; "
+                        f"forecast hour will NOT "
+                        f"be published."
+                    )
+
                 # ====================================================
                 # SEQUENCE PRODUCTS FOR THIS SAME HOUR
                 # ====================================================
@@ -573,20 +568,106 @@ def run_ifs(
                     "failed"
                 ]
 
+                sequence_failed = int(
+                    sequence_result.get(
+                        "failed",
+                        0,
+                    )
+                )
+
+                if sequence_failed > 0:
+
+                    raise RuntimeError(
+                        f"IFS "
+                        f"f{forecast_hour:03d}: "
+                        f"{sequence_failed} "
+                        f"sequence plots failed; "
+                        f"forecast hour will NOT "
+                        f"be published."
+                    )
+
                 # ====================================================
                 # UPLOAD THIS HOUR'S PNGs AND IMMEDIATELY REMOVE THEM
                 # ====================================================
 
+                expected_hour_products = (
+                    products_for_forecast_hour(
+                        model="ifs",
+                        products=(
+                            get_default_products_for_model(
+                                "ifs"
+                            )
+                        ),
+                        forecast_hour=(
+                            forecast_hour
+                        ),
+                    )
+                )
+
+                # Sequence products use their own cadence and
+                # processing rules. Add them only when this hour's
+                # sequence processor actually produced or reused
+                # sequence frames.
+                if (
+                    int(
+                        sequence_result.get(
+                            "created",
+                            0,
+                        )
+                    )
+                    +
+                    int(
+                        sequence_result.get(
+                            "skipped",
+                            0,
+                        )
+                    )
+                    > 0
+                ):
+
+                    expected_hour_products = (
+                        list(
+                            expected_hour_products
+                        )
+                        +
+                        list(
+                            get_sequence_products_for_model(
+                                "ifs"
+                            )
+                        )
+                    )
+
+                expected_hour_products = list(
+                    dict.fromkeys(
+                        expected_hour_products
+                    )
+                )
+
                 upload_result = (
-                    upload_and_remove_step_outputs(
+                    upload_forecast_hour_outputs(
+                        model="ifs",
+                        cycle_date=(
+                            identity[
+                                "date"
+                            ]
+                        ),
+                        cycle_hour=(
+                            identity[
+                                "hour"
+                            ]
+                        ),
+                        forecast_hour=(
+                            forecast_hour
+                        ),
                         cycle_output_dir=(
                             cycle_output_dir
                         ),
-                        cycle_name=(
-                            cycle_name
+                        delete_after_upload=True,
+                        expected_products=(
+                            expected_hour_products
                         ),
-                        step=(
-                            forecast_hour
+                        expected_regions=(
+                            OPERATIONAL_REGIONS
                         ),
                     )
                 )
@@ -702,10 +783,65 @@ def run_ifs(
         -1
     ]
 
+    remaining_this_invocation = max(
+        0,
+        (
+            len(
+                forecast_hours
+            )
+            -
+            result[
+                "forecast_hours_processed"
+            ]
+        ),
+    )
+
+    if (
+        result[
+            "failed"
+        ]
+        > 0
+        or
+        result[
+            "cloud_upload_failed"
+        ]
+        > 0
+    ):
+
+        pipeline_status = "failed"
+
+    elif (
+        stopped_at_upstream_frontier
+        or
+        remaining_this_invocation
+        > 0
+    ):
+
+        pipeline_status = (
+            "waiting_upstream"
+        )
+
+    else:
+
+        pipeline_status = "complete"
+
+    result[
+        "status"
+    ] = pipeline_status
+
+    result[
+        "remaining_this_invocation"
+    ] = remaining_this_invocation
+
+    result[
+        "stopped_at_upstream_frontier"
+    ] = stopped_at_upstream_frontier
+
     print()
     print("=" * 70)
     print(
-        "IFS STREAMING PIPELINE COMPLETE"
+        f"IFS STREAMING PIPELINE "
+        f"{pipeline_status.upper()}"
     )
     print("=" * 70)
 
@@ -749,6 +885,21 @@ def run_ifs(
     print(
         f"Local PNGs removed: "
         f"{result['local_png_removed']}"
+    )
+
+    print(
+        f"Status: "
+        f"{result['status']}"
+    )
+
+    print(
+        f"Remaining this invocation: "
+        f"{result['remaining_this_invocation']}"
+    )
+
+    print(
+        f"Stopped at upstream frontier: "
+        f"{result['stopped_at_upstream_frontier']}"
     )
 
     print("=" * 70)
