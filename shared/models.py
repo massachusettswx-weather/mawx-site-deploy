@@ -35,26 +35,21 @@ MODELS = {
         # ----------------------------------------------------
         # FORECAST SCHEDULE
         #
-        # f000-f120:
-        #     hourly
-        #
-        # f123-f240:
+        # f000-f240:
         #     every 3 hours
         #
         # f246-f384:
         #     every 6 hours
+        #
+        # This keeps the site much closer to real-time GFS
+        # dissemination by avoiding the expensive hourly
+        # rendering workload through f120.
         # ----------------------------------------------------
 
         "forecast_schedule": {
             "segments": [
                 {
                     "start": 0,
-                    "end": 120,
-                    "step": 1,
-                },
-
-                {
-                    "start": 123,
                     "end": 240,
                     "step": 3,
                 },
