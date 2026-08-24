@@ -30,7 +30,7 @@ MODELS = {
         "forecast_start": 0,
         "forecast_end": 384,
 
-        "workers": 4,
+        "workers": 2,
 
         # ----------------------------------------------------
         # FORECAST SCHEDULE
@@ -116,7 +116,7 @@ MODELS = {
         "forecast_start": 0,
         "forecast_end": 360,
 
-        "workers": 4,
+        "workers": 2,
 
         # ----------------------------------------------------
         # IFS FORECAST SCHEDULE
@@ -217,7 +217,7 @@ MODELS = {
         "forecast_start": 0,
         "forecast_end": 360,
 
-        "workers": 4,
+        "workers": 2,
 
         "forecast_schedule": {
             "segments": [
