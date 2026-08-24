@@ -1,3 +1,5 @@
+import os
+
 from datetime import (
     datetime,
     timezone,
@@ -46,6 +48,62 @@ from shared.storage import (
 # ============================================================
 
 OVERWRITE_EXISTING = False
+
+
+# ============================================================
+# GFS REGION MODE
+#
+# priority:
+#     CONUS only. This is the live dissemination lane.
+#
+# background:
+#     Every operational region except CONUS.
+#
+# all:
+#     Legacy behavior; every operational region.
+# ============================================================
+
+GFS_REGION_MODE = (
+    os.environ.get(
+        "GFS_REGION_MODE",
+        "priority",
+    )
+    .strip()
+    .lower()
+)
+
+
+def get_gfs_regions():
+    """
+    Return the region set for this Cloud Run execution.
+    """
+
+    if GFS_REGION_MODE == "priority":
+
+        return [
+            "conus",
+        ]
+
+    if GFS_REGION_MODE == "background":
+
+        return [
+            region
+            for region in OPERATIONAL_REGIONS
+            if region != "conus"
+        ]
+
+    if GFS_REGION_MODE == "all":
+
+        return list(
+            OPERATIONAL_REGIONS
+        )
+
+    raise ValueError(
+        "Unknown GFS_REGION_MODE: "
+        f"{GFS_REGION_MODE}"
+    )
+
+
 
 MIN_FREE_DISK_GB = 3.0
 
@@ -243,6 +301,25 @@ def run_gfs(
 
     print("=" * 70)
 
+    execution_regions = (
+        get_gfs_regions()
+    )
+
+    print(
+        f"GFS region mode: "
+        f"{GFS_REGION_MODE}"
+    )
+
+    print(
+        f"Execution regions: "
+        f"{len(execution_regions)}"
+    )
+
+    print(
+        "First execution regions: "
+        f"{execution_regions[:10]}"
+    )
+
     sequence_processor = (
         SequenceStreamProcessor(
             model="gfs",
@@ -250,7 +327,7 @@ def run_gfs(
                 cycle_output_dir
             ),
             regions=(
-                OPERATIONAL_REGIONS
+                execution_regions
             ),
             overwrite=(
                 OVERWRITE_EXISTING
@@ -380,7 +457,7 @@ def run_gfs(
                             instantaneous_products
                         ),
                         regions=(
-                            OPERATIONAL_REGIONS
+                            execution_regions
                         ),
                         overwrite=(
                             OVERWRITE_EXISTING
@@ -544,7 +621,7 @@ def run_gfs(
                             expected_hour_products
                         ),
                         expected_regions=(
-                            OPERATIONAL_REGIONS
+                            execution_regions
                         ),
                     )
                 )

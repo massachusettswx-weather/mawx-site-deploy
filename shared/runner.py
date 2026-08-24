@@ -12,6 +12,10 @@ from shared.data import (
     load_product,
 )
 
+from shared.storage import (
+    upload_rendered_frame,
+)
+
 from shared.plotting import (
     render_product,
 )
@@ -62,6 +66,117 @@ OPERATIONAL_REGIONS = (
         if region != "conus"
     ]
 )
+
+
+
+# ============================================================
+# BALANCED REGION ORDER
+# ============================================================
+
+def get_balanced_region_order(
+    regions,
+    *args,
+    **kwargs,
+):
+    """
+    Return a deterministic region order while keeping CONUS first.
+
+    This function is intentionally backward-compatible with older
+    sequence/render callers that may pass forecast-hour/product
+    information either positionally or by keyword.
+
+    CONUS always remains the first region. All other regions may
+    be rotated to distribute rendering work more evenly.
+    """
+
+    regions = list(
+        regions
+    )
+
+    if not regions:
+        return []
+
+    # --------------------------------------------------------
+    # CONUS PRIORITY
+    # --------------------------------------------------------
+
+    has_conus = (
+        "conus"
+        in regions
+    )
+
+    remaining = [
+        region
+        for region in regions
+        if region != "conus"
+    ]
+
+    if not remaining:
+
+        return (
+            ["conus"]
+            if has_conus
+            else regions
+        )
+
+    # --------------------------------------------------------
+    # DETERMINE ROTATION OFFSET
+    #
+    # Accept several historical calling conventions.
+    # --------------------------------------------------------
+
+    offset = 0
+
+    for key in (
+        "forecast_hour",
+        "step",
+        "product_index",
+        "offset",
+    ):
+
+        value = kwargs.get(
+            key
+        )
+
+        if isinstance(
+            value,
+            int,
+        ):
+
+            offset += value
+
+    for value in args:
+
+        if isinstance(
+            value,
+            int,
+        ):
+
+            offset += value
+
+    offset %= len(
+        remaining
+    )
+
+    balanced = (
+        remaining[
+            offset:
+        ]
+        +
+        remaining[
+            :offset
+        ]
+    )
+
+    if has_conus:
+
+        return (
+            ["conus"]
+            +
+            balanced
+        )
+
+    return balanced
 
 
 # ============================================================
@@ -374,6 +489,42 @@ def run_product(
                     )
                 ),
             )
+
+            # ------------------------------------------------
+            # LIVE FRAME STREAMING
+            #
+            # Upload this individual PNG immediately instead
+            # of waiting for every region/product in the
+            # forecast hour to finish.
+            #
+            # For operational output directories this also
+            # removes the local PNG after successful upload.
+            # Manual/non-operational workflows are left alone.
+            # ------------------------------------------------
+
+            stream_result = (
+                upload_rendered_frame(
+                    local_path=output_path,
+                    model=model,
+                    product=product_name,
+                    region=region_name,
+                    forecast_hour=step,
+                    cycle_output_dir=output_dir,
+                    delete_after_upload=True,
+                    publish_progress=True,
+                )
+            )
+
+            if (
+                stream_result.get("error")
+            ):
+                print(
+                    f"STREAM WARNING "
+                    f"f{step:03d} "
+                    f"{product_name} "
+                    f"{region_name}: "
+                    f"{stream_result['error']}"
+                )
 
             created += 1
 

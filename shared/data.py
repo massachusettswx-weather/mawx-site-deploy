@@ -480,6 +480,22 @@ def apply_product_units(
             ]
         )
 
+
+    if (
+        product_name
+        == "snow_depth_we"
+        and model == "gfs"
+    ):
+        # GFS SNOD is physical snow depth in metres.
+        loaded[
+            "snow_depth"
+        ] = (
+            loaded[
+                "snow_depth"
+            ]
+            * 39.37007874015748
+        )
+
     return loaded
 
 

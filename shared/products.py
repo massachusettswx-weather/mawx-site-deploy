@@ -758,8 +758,8 @@ PRODUCTS = {
 
         "gfs": {
             "fields": {
-                "u": {"short_name": "100u", "level": 100, "type_of_level": "heightAboveGround"},
-                "v": {"short_name": "100v", "level": 100, "type_of_level": "heightAboveGround"},
+                "u": {"short_name": "u", "level": 100, "type_of_level": "heightAboveGround"},
+                "v": {"short_name": "v", "level": 100, "type_of_level": "heightAboveGround"},
             },
             "derive": "wind_speed_knots",
         },
@@ -979,6 +979,8 @@ PRODUCTS = {
             "fields": {
                 "cape": {
                     "short_name": "cape",
+                    "type_of_level": "pressureFromGroundLayer",
+                    "level": 9000,
                     "idx_level_text": "90-0 mb above ground",
                 },
             },
@@ -1002,6 +1004,8 @@ PRODUCTS = {
             "fields": {
                 "cape": {
                     "short_name": "cape",
+                    "type_of_level": "pressureFromGroundLayer",
+                    "level": 25500,
                     "idx_level_text": "255-0 mb above ground",
                 },
             },
@@ -1059,6 +1063,8 @@ PRODUCTS = {
             "fields": {
                 "cin": {
                     "short_name": "cin",
+                    "type_of_level": "pressureFromGroundLayer",
+                    "level": 9000,
                     "idx_level_text": "90-0 mb above ground",
                 },
             },
@@ -1082,6 +1088,8 @@ PRODUCTS = {
             "fields": {
                 "cin": {
                     "short_name": "cin",
+                    "type_of_level": "pressureFromGroundLayer",
+                    "level": 25500,
                     "idx_level_text": "255-0 mb above ground",
                 },
             },
@@ -1296,11 +1304,11 @@ PRODUCTS = {
     },
 
     "snow_depth_we": {
-        "name": "Snow Depth Water Equivalent",
+        "name": "Snow Depth",
         "category": "Winter",
         "renderer": "surface_shading",
         "shade_field": "snow_depth",
-        "shading_name": "Snow Depth Water Equivalent",
+        "shading_name": "Snow Depth",
         "shading_units": "in",
         "shading_levels": [
             0.01, 0.05, 0.10, 0.25, 0.50,
@@ -1312,13 +1320,10 @@ PRODUCTS = {
         "gfs": {
             "fields": {
                 "snow_depth": {
-                    "short_name": "weasd",
+                    "short_name": "sde",
                     "type_of_level": "surface",
                     "idx_level_text": "surface",
                 },
-            },
-            "postprocess": {
-                "snow_depth": "kg_m2_to_inches",
             },
         },
 

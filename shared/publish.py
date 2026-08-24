@@ -1,6 +1,9 @@
 from __future__ import annotations
 
 import json
+import fcntl
+import time
+import os
 import shutil
 
 from datetime import (
@@ -1475,6 +1478,291 @@ def publish_forecast_hour_progress(
             ]
         ),
     }
+
+
+# ============================================================
+
+FRAME_PROGRESS_MIN_INTERVAL_SECONDS = float(
+    os.getenv(
+        "WEATHER_FRAME_PROGRESS_INTERVAL",
+        "2.0",
+    )
+)
+
+
+def _get_frame_progress_lock_path(
+    *,
+    model,
+    cycle_date,
+    cycle_hour,
+):
+    """
+    Return one cross-process lock path per model cycle.
+
+    Product rendering uses ProcessPoolExecutor, so several workers can
+    finish/upload frames at nearly the same time. The lock prevents
+    simultaneous GCS inventory scans and metadata writes.
+    """
+
+    lock_root = (
+        get_local_root()
+        / ".frame_progress"
+    )
+
+    lock_root.mkdir(
+        parents=True,
+        exist_ok=True,
+    )
+
+    return (
+        lock_root
+        / (
+            f"{str(model).lower()}_"
+            f"{str(cycle_date)}_"
+            f"{int(cycle_hour):02d}.lock"
+        )
+    )
+
+
+def _get_frame_progress_stamp_path(
+    *,
+    model,
+    cycle_date,
+    cycle_hour,
+):
+    lock_path = (
+        _get_frame_progress_lock_path(
+            model=model,
+            cycle_date=cycle_date,
+            cycle_hour=cycle_hour,
+        )
+    )
+
+    return lock_path.with_suffix(
+        ".stamp"
+    )
+
+
+def _read_frame_progress_stamp(
+    stamp_path,
+):
+    try:
+
+        return float(
+            Path(
+                stamp_path
+            )
+            .read_text()
+            .strip()
+        )
+
+    except Exception:
+
+        return 0.0
+
+
+def _write_frame_progress_stamp(
+    stamp_path,
+    value,
+):
+    Path(
+        stamp_path
+    ).write_text(
+        str(
+            float(
+                value
+            )
+        )
+    )
+
+
+def _build_running_current_payload(
+    *,
+    model,
+    cycle_date,
+    cycle_hour,
+    progress,
+    progress_object,
+):
+    cycle_id = (
+        build_cycle_id(
+            cycle_date,
+            cycle_hour,
+        )
+    )
+
+    return {
+        "manifest_version": MANIFEST_VERSION,
+        "status": "running",
+        "model": model,
+        "model_name": progress["model_name"],
+        "cycle": cycle_id,
+        "cycle_date": str(cycle_date),
+        "cycle_hour": int(cycle_hour),
+        "updated_at_utc": progress["updated_at_utc"],
+        "manifest_object": progress_object,
+        "manifest_url": build_https_url(progress_object),
+        "progress_object": progress_object,
+        "progress_url": build_https_url(progress_object),
+        "product_prefix": progress["product_prefix"],
+        "available_forecast_hours": progress["available_forecast_hours"],
+        "forecast_hours_completed": progress["forecast_hours_completed"],
+        "products": progress["products"],
+        "regions": progress["regions"],
+        "file_count": progress["file_count"],
+    }
+
+
+def publish_frame_progress(
+    *,
+    model,
+    cycle_date,
+    cycle_hour,
+    forecast_hour,
+    force=False,
+):
+    """
+    Refresh progress.json/current.json while individual PNG frames stream.
+
+    The first frame publishes immediately. Later calls are coalesced to
+    WEATHER_FRAME_PROGRESS_INTERVAL seconds (default 2 seconds).
+    """
+
+    cycle_date = str(cycle_date)
+    cycle_hour = int(cycle_hour)
+    forecast_hour = int(forecast_hour)
+
+    if (
+        len(cycle_date)
+        != 8
+        or
+        not cycle_date.isdigit()
+    ):
+
+        return {
+            "published": False,
+            "reason": "non-operational cycle date",
+        }
+
+    lock_path = _get_frame_progress_lock_path(
+        model=model,
+        cycle_date=cycle_date,
+        cycle_hour=cycle_hour,
+    )
+
+    stamp_path = _get_frame_progress_stamp_path(
+        model=model,
+        cycle_date=cycle_date,
+        cycle_hour=cycle_hour,
+    )
+
+    with lock_path.open("a+") as lock_file:
+
+        fcntl.flock(
+            lock_file.fileno(),
+            fcntl.LOCK_EX,
+        )
+
+        now = time.monotonic()
+        last = _read_frame_progress_stamp(
+            stamp_path
+        )
+
+        if (
+            not force
+            and
+            last > 0
+            and
+            (now - last)
+            <
+            FRAME_PROGRESS_MIN_INTERVAL_SECONDS
+        ):
+
+            return {
+                "published": False,
+                "reason": "coalesced",
+            }
+
+        progress = build_progress_manifest(
+            model=model,
+            cycle_date=cycle_date,
+            cycle_hour=cycle_hour,
+        )
+
+        if (
+            forecast_hour
+            not in progress[
+                "available_forecast_hours"
+            ]
+        ):
+
+            return {
+                "published": False,
+                "reason": (
+                    "uploaded frame not yet visible "
+                    "in GCS inventory"
+                ),
+            }
+
+        cycle_id = build_cycle_id(
+            cycle_date,
+            cycle_hour,
+        )
+
+        progress_object = get_cycle_progress_object_name(
+            model,
+            cycle_id,
+        )
+
+        current_object = get_current_object_name(
+            model
+        )
+
+        upload_json(
+            progress_object,
+            progress,
+        )
+
+        current_payload = _build_running_current_payload(
+            model=model,
+            cycle_date=cycle_date,
+            cycle_hour=cycle_hour,
+            progress=progress,
+            progress_object=progress_object,
+        )
+
+        upload_json(
+            current_object,
+            current_payload,
+        )
+
+        _write_frame_progress_stamp(
+            stamp_path,
+            now,
+        )
+
+        max_hour = max(
+            progress[
+                "available_forecast_hours"
+            ]
+        )
+
+        print(
+            f"{str(model).upper()} "
+            f"{cycle_id}: "
+            f"live frame metadata "
+            f"files={progress['file_count']} "
+            f"through f{max_hour:03d}"
+        )
+
+        return {
+            "published": True,
+            "cycle": cycle_id,
+            "forecast_hour": forecast_hour,
+            "progress": progress_object,
+            "current": current_object,
+            "file_count": progress["file_count"],
+        }
 
 
 # ============================================================
