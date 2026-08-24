@@ -140,12 +140,6 @@ MODELS = {
             "segments": [
                 {
                     "start": 0,
-                    "end": 90,
-                    "step": 1,
-                },
-
-                {
-                    "start": 93,
                     "end": 144,
                     "step": 3,
                 },
