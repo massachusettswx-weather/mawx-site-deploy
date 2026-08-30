@@ -30,8 +30,6 @@
         </div>
     </div>
 </header>
-
-
 <nav class="section-tabs" aria-label="Site sections">
     <a class="section-tab active" href="./">
         Global
@@ -55,7 +53,7 @@
 
     <a
         class="section-tab analysis-tab"
-        href="current-analysis/polar-vortex.html"
+        href="/site/current-analysis.html"
     >
         Current Analysis
     </a>
@@ -87,6 +85,27 @@
 
                 <option value="aifs">
                     ECMWF AIFS
+                </option>
+
+                <option value="fnv3">
+                    FNV3 Cyclones
+                </option>
+
+                <option value="fnv3_large">
+                    FNV3-L Cyclones
+                </option>
+            </select>
+        </div>
+
+
+        <div class="control-group">
+            <label for="cycleSelect">
+                Cycle
+            </label>
+
+            <select id="cycleSelect">
+                <option value="latest">
+                    Latest
                 </option>
             </select>
         </div>
@@ -185,24 +204,12 @@
                     </span>
                 </div>
 
-            </section>
-
-
-            <section class="map-wrapper">
-
-                <div
-                    id="loadingText"
-                    class="loading"
-                >
-                    Loading map...
+            
+                <div class="export-buttons">
+                    <button id="runGifButton" type="button" title="Download the selected forecast run as an animated GIF">Run GIF</button>
+                    <button id="trendGifButton" type="button" title="Download the selected forecast hour across previous model cycles">Trend GIF</button>
                 </div>
-
-                <img
-                    id="mapImage"
-                    alt="Weather model forecast map"
-                >
-
-            </section>
+</section>
 
 
             <section class="forecast-scrubber-panel">
@@ -248,6 +255,25 @@
                 </div>
 
             </section>
+
+            <section class="map-wrapper">
+
+                <div
+                    id="loadingText"
+                    class="loading"
+                >
+                    Loading map...
+                </div>
+
+                <img
+                    id="mapImage"
+                    alt="Weather model forecast map"
+                >
+
+            </section>
+
+
+            
 
 
             <section class="viewer-footer">
@@ -299,7 +325,11 @@
 </main>
 
 
-<script src="app.js"></script>
+
+    <!-- Client-side GIF export -->
+    <script src="https://cdn.jsdelivr.net/npm/gif.js.optimized/dist/gif.js"></script>
+
+    <script src="app.js"></script>
 
 </body>
 </html>

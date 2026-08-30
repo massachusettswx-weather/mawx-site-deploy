@@ -1,0 +1,401 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+
+    <meta
+        name="viewport"
+        content="width=device-width, initial-scale=1.0"
+    >
+
+    <title>
+        Current Analysis | MassachusettsWx
+    </title>
+
+    <link
+        rel="stylesheet"
+        href="/site/current-analysis.css"
+    >
+</head>
+
+<body>
+
+    <header class="analysis-header">
+
+        <div>
+
+            <div class="eyebrow">
+                MassachusettsWx
+            </div>
+
+            <h1>
+                Current Analysis
+            </h1>
+
+            <p>
+                Atmospheric, oceanic, and climate analysis
+                using reanalysis and near-real-time datasets.
+            </p>
+
+        </div>
+
+        <a
+            href="/site/"
+            class="home-link"
+        >
+            Back to Models
+        </a>
+
+    </header>
+
+
+    <main>
+
+        <section class="controls-panel">
+
+            <div class="control-group">
+
+                <label for="dataset-select">
+                    Dataset
+                </label>
+
+                <select id="dataset-select"></select>
+
+            </div>
+
+
+            <div class="control-group">
+
+                <label for="variable-select">
+                    Variable
+                </label>
+
+                <select id="variable-select"></select>
+
+            </div>
+
+
+            <div class="control-group">
+
+                <label for="level-select">
+                    Pressure Level
+                </label>
+
+                <select id="level-select">
+                    <option value="10">
+                        10 hPa
+                    </option>
+                </select>
+
+            </div>
+
+
+            <div class="control-group">
+
+                <label for="date-select">
+                    Date
+                </label>
+
+                <input
+                    type="date"
+                    id="date-select"
+                >
+
+            </div>
+
+
+            <div class="control-group">
+
+                <label for="region-select">
+                    Region
+                </label>
+
+                <select id="region-select">
+
+                    <option value="global">
+                        Global
+                    </option>
+
+                    <option value="northern_hemisphere">
+                        Northern Hemisphere
+                    </option>
+
+                    <option value="arctic">
+                        Arctic
+                    </option>
+
+                </select>
+
+            </div>
+
+        </section>
+
+
+        <section class="status-row">
+
+            <div class="status-card">
+
+                <span class="status-label">
+                    Dataset
+                </span>
+
+                <strong id="dataset-name">
+                    —
+                </strong>
+
+            </div>
+
+
+            <div class="status-card">
+
+                <span class="status-label">
+                    Availability
+                </span>
+
+                <strong id="dataset-status">
+                    —
+                </strong>
+
+            </div>
+
+
+            <div class="status-card">
+
+                <span class="status-label">
+                    Coverage
+                </span>
+
+                <strong id="dataset-coverage">
+                    —
+                </strong>
+
+            </div>
+
+
+            <div class="status-card">
+
+                <span class="status-label">
+                    Update Mode
+                </span>
+
+                <strong id="dataset-latency">
+                    —
+                </strong>
+
+            </div>
+
+        </section>
+
+
+        <section class="analysis-grid">
+
+            <article class="analysis-card primary-analysis">
+
+                <div class="card-heading">
+
+                    <div>
+
+                        <span class="section-tag">
+                            Stratosphere
+                        </span>
+
+                        <h2>
+                            10 hPa / 60°N Zonal Wind
+                        </h2>
+
+                    </div>
+
+                    <span class="active-badge">
+                        Active
+                    </span>
+
+                </div>
+
+
+                <p>
+                    Daily zonal-mean zonal wind at 60°N.
+                    ERA5 provides the historical record,
+                    with GFS analysis available for recent
+                    conditions when needed.
+                </p>
+
+
+                <div
+                    id="stratwind-container"
+                    class="stratwind-analysis"
+                >
+
+                    <div class="stratwind-status-row">
+
+                        <div class="stratwind-stat">
+                            <span>Latest Wind</span>
+                            <strong id="caValue">—</strong>
+                        </div>
+
+                        <div class="stratwind-stat">
+                            <span>Latest Date</span>
+                            <strong id="caDate">—</strong>
+                        </div>
+
+                        <div class="stratwind-stat">
+                            <span>Current Season</span>
+                            <strong id="caSeason">—</strong>
+                        </div>
+
+                        <div class="stratwind-stat">
+                            <span>Historical Percentile</span>
+                            <strong id="caPercentile">—</strong>
+                        </div>
+
+                    </div>
+
+                    <div
+                        id="caStatus"
+                        class="stratwind-status"
+                    >
+                        Loading ERA5 / GFS analysis...
+                    </div>
+
+                    <div
+                        id="caChart"
+                        class="stratwind-chart"
+                    ></div>
+
+                    <div
+                        id="caLegend"
+                        class="stratwind-legend"
+                    ></div>
+
+                    
+<div class="stratwind-compatibility" hidden>
+    <span id="caChartWrapper"></span>
+    <span id="caPercentileSub"></span>
+    <span id="caYears"></span>
+</div>
+
+<div class="stratwind-notes">
+
+                        <strong>
+                            Data sources
+                        </strong>
+
+                        <span>
+                            ERA5 provides the historical record from
+                            1940 onward. Recent observations can be
+                            extended with GFS analysis when ERA5/ERA5T
+                            has not yet reached the latest date.
+                        </span>
+
+                    </div>
+
+                </div>
+
+            </article>
+
+
+            <article class="analysis-card">
+
+                <div class="card-heading">
+
+                    <div>
+
+                        <span class="section-tag">
+                            SST / Ocean
+                        </span>
+
+                        <h2>
+                            Sea Surface Analysis
+                        </h2>
+
+                    </div>
+
+                    <span class="planned-badge">
+                        Infrastructure Ready
+                    </span>
+
+                </div>
+
+                <p>
+                    Framework for OSTIA, NOAA OISST,
+                    NOAA Coral Reef Watch, SST anomalies,
+                    and additional ocean diagnostics.
+                </p>
+
+                <div id="ocean-datasets"></div>
+
+            </article>
+
+
+            <article class="analysis-card">
+
+                <div class="card-heading">
+
+                    <div>
+
+                        <span class="section-tag">
+                            Atmosphere
+                        </span>
+
+                        <h2>
+                            Reanalysis Explorer
+                        </h2>
+
+                    </div>
+
+                    <span class="planned-badge">
+                        Expanding
+                    </span>
+
+                </div>
+
+                <p>
+                    Reusable infrastructure for atmospheric
+                    variables, pressure levels, regions,
+                    dates, anomalies, climatologies,
+                    maps, and time series.
+                </p>
+
+            </article>
+
+
+            <article class="analysis-card">
+
+                <div class="card-heading">
+
+                    <div>
+
+                        <span class="section-tag">
+                            Future
+                        </span>
+
+                        <h2>
+                            Additional Datasets
+                        </h2>
+
+                    </div>
+
+                </div>
+
+                <p>
+                    New analysis sources can be registered
+                    without redesigning the page or control
+                    system.
+                </p>
+
+                <div id="future-datasets"></div>
+
+            </article>
+
+        </section>
+
+    </main>
+
+
+    <script src="/site/current-analysis-registry.js"></script>
+    <script src="/site/current-analysis.js"></script>
+<script src="/site/current-analysis-stratwind.js"></script>
+
+</body>
+
+</html>

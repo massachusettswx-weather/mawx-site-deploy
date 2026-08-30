@@ -77,6 +77,12 @@ from shared.era5_polar_vortex import (
 )
 
 
+from shared.gfs_stratwind import (
+    probe_gfs_stratwind,
+    publish_recent_gfs_extension,
+)
+
+
 def main():
 
     parser = argparse.ArgumentParser(
@@ -133,6 +139,24 @@ def main():
     )
 
     parser.add_argument(
+        "--gfs-probe",
+        action="store_true",
+        help=(
+            "Probe the newest available GFS "
+            "10-hPa/60N analysis without publishing."
+        ),
+    )
+
+    parser.add_argument(
+        "--gfs-recent",
+        action="store_true",
+        help=(
+            "Publish recent GFS analysis used to extend "
+            "the ERA5 series toward real time."
+        ),
+    )
+
+    parser.add_argument(
         "--rebuild-bundle",
         action="store_true",
         help=(
@@ -164,9 +188,33 @@ def main():
 
     if args.daily:
 
+        # ----------------------------------------------------
+        # 1. Refresh authoritative ERA5 / ERA5T archive
+        # ----------------------------------------------------
+
         run_daily_update()
 
+        # ----------------------------------------------------
+        # 2. Fill the remaining real-time latency gap with GFS
+        # ----------------------------------------------------
+
+        publish_recent_gfs_extension()
+
         ran_something = True
+
+    if args.gfs_probe:
+
+        probe_gfs_stratwind()
+
+        ran_something = True
+
+
+    if args.gfs_recent:
+
+        publish_recent_gfs_extension()
+
+        ran_something = True
+
 
     if args.rebuild_bundle:
 

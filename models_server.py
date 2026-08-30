@@ -3,6 +3,7 @@ from __future__ import annotations
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timedelta
 from pathlib import Path
+import mimetypes
 import time
 
 from flask import (
@@ -680,10 +681,77 @@ def products_file(
     filename,
 ):
 
-    return send_from_directory(
-        PRODUCTS_DIR,
-        filename,
+    object_name = (
+        "products/"
+        + filename
     )
+
+    try:
+
+        bucket = get_bucket()
+
+        blob = bucket.blob(
+            object_name
+        )
+
+        if not blob.exists():
+
+            print(
+                "PRODUCT NOT FOUND:",
+                object_name,
+            )
+
+            return jsonify(
+                {
+                    "error":
+                        "Model product object not found.",
+
+                    "object":
+                        object_name,
+                }
+            ), 404
+
+        data = (
+            blob.download_as_bytes()
+        )
+
+        content_type = (
+            blob.content_type
+            or
+            "image/png"
+        )
+
+        response = Response(
+            data,
+            mimetype=content_type,
+        )
+
+        response.headers[
+            "Cache-Control"
+        ] = (
+            "public, "
+            "max-age=300"
+        )
+
+        return response
+
+    except Exception as exc:
+
+        print(
+            "PRODUCT ERROR:",
+            object_name,
+            exc,
+        )
+
+        return jsonify(
+            {
+                "error":
+                    str(exc),
+
+                "object":
+                    object_name,
+            }
+        ), 500
 
 
 # ============================================================

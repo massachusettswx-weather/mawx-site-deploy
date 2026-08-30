@@ -174,7 +174,7 @@ PERCENTILE_WINDOW_DAYS = 5
 
 ARCO_BASE_URL = (
     "https://arco.datastores.ecmwf.int/"
-    "cadl-arco-time-002/arco"
+    "cadl-arco-time-048/arco"
 )
 
 ARCO_PRESSURE_URL_CANDIDATES = [
@@ -190,6 +190,7 @@ ARCO_U_WIND_VARIABLE_NAMES = (
 
 # Candidate names for the pressure-level coordinate.
 ARCO_LEVEL_COORD_NAMES = (
+    "pressureLevel",
     "level",
     "pressure_level",
     "isobaricInhPa",

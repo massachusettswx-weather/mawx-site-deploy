@@ -1,0 +1,301 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+
+    <meta
+        name="viewport"
+        content="width=device-width, initial-scale=1.0"
+    >
+
+    <title>
+        Project Status — MassachusettsWx
+    </title>
+
+    <link
+        rel="stylesheet"
+        href="../styles.css"
+    >
+
+    <link
+        rel="stylesheet"
+        href="./project-status.css"
+    >
+</head>
+
+<body>
+
+    <header class="status-site-header">
+
+        <div class="status-header-inner">
+
+            <a
+                class="status-brand"
+                href="../"
+            >
+                MassachusettsWx
+            </a>
+
+            <div class="status-header-copy">
+
+                <h1>
+                    Development Roadmap
+                </h1>
+
+                <p>
+                    Current MassachusettsWx site development,
+                    planned features, and completed work.
+                </p>
+
+            </div>
+
+            <a
+                class="status-back-link"
+                href="../"
+            >
+                Back to Models
+            </a>
+
+        </div>
+
+    </header>
+
+
+    <main class="status-main">
+
+        <section class="roadmap-intro">
+
+            <div>
+
+                <div class="roadmap-eyebrow">
+                    MassachusettsWx Development
+                </div>
+
+                <h2>
+                    Project Status
+                </h2>
+
+                <p>
+                    This roadmap tracks active development,
+                    upcoming site features, and completed work.
+                    Priority labels range from P0
+                    (highest priority) through P3.
+                </p>
+
+            </div>
+
+            <div
+                class="roadmap-summary"
+                aria-label="Roadmap totals"
+            >
+
+                <div class="summary-card">
+
+                    <span
+                        class="summary-value"
+                        id="totalCount"
+                    >
+                        —
+                    </span>
+
+                    <span class="summary-label">
+                        Total Items
+                    </span>
+
+                </div>
+
+                <div class="summary-card">
+
+                    <span
+                        class="summary-value"
+                        id="progressCount"
+                    >
+                        —
+                    </span>
+
+                    <span class="summary-label">
+                        In Progress
+                    </span>
+
+                </div>
+
+                <div class="summary-card">
+
+                    <span
+                        class="summary-value"
+                        id="completedCount"
+                    >
+                        —
+                    </span>
+
+                    <span class="summary-label">
+                        Completed
+                    </span>
+
+                </div>
+
+            </div>
+
+        </section>
+
+
+        <section
+            class="roadmap-board"
+            aria-label="MassachusettsWx project roadmap"
+        >
+
+            <!-- ================================================
+                 TO DO
+                 ================================================ -->
+
+            <section
+                class="roadmap-column"
+                data-status-column="todo"
+            >
+
+                <header class="column-header">
+
+                    <div>
+
+                        <div class="column-kicker">
+                            Planned
+                        </div>
+
+                        <h3>
+                            To Do
+                        </h3>
+
+                    </div>
+
+                    <span
+                        class="column-count"
+                        id="todoCount"
+                    >
+                        0
+                    </span>
+
+                </header>
+
+                <div
+                    class="project-list"
+                    id="todoList"
+                ></div>
+
+            </section>
+
+
+            <!-- ================================================
+                 IN PROGRESS
+                 ================================================ -->
+
+            <section
+                class="roadmap-column"
+                data-status-column="in-progress"
+            >
+
+                <header class="column-header">
+
+                    <div>
+
+                        <div class="column-kicker">
+                            Active
+                        </div>
+
+                        <h3>
+                            In Progress
+                        </h3>
+
+                    </div>
+
+                    <span
+                        class="column-count"
+                        id="progressColumnCount"
+                    >
+                        0
+                    </span>
+
+                </header>
+
+                <div
+                    class="project-list"
+                    id="progressList"
+                ></div>
+
+            </section>
+
+
+            <!-- ================================================
+                 COMPLETED
+                 ================================================ -->
+
+            <section
+                class="roadmap-column"
+                data-status-column="completed"
+            >
+
+                <header class="column-header">
+
+                    <div>
+
+                        <div class="column-kicker">
+                            Finished
+                        </div>
+
+                        <h3>
+                            Completed
+                        </h3>
+
+                    </div>
+
+                    <span
+                        class="column-count"
+                        id="completedColumnCount"
+                    >
+                        0
+                    </span>
+
+                </header>
+
+                <div
+                    class="project-list"
+                    id="completedList"
+                ></div>
+
+            </section>
+
+        </section>
+
+
+        <section class="roadmap-note">
+
+            <strong>
+                Living roadmap
+            </strong>
+
+            <span>
+                New ideas can be added and reprioritized
+                as MassachusettsWx continues to expand.
+            </span>
+
+        </section>
+
+    </main>
+
+
+    <footer class="status-footer">
+
+        <span>
+            MassachusettsWx
+        </span>
+
+        <span>
+            Development roadmap
+        </span>
+
+    </footer>
+
+
+    <script src="./project-status.js"></script>
+
+</body>
+</html>

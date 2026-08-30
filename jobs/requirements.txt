@@ -19,3 +19,7 @@ requests
 aiohttp
 numpy>=1.26
 google-cloud-storage>=2.16,<4
+
+# GFS Current Analysis GRIB reader
+cfgrib>=0.9.15
+eccodes>=2.38

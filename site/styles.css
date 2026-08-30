@@ -126,6 +126,7 @@ main {
     display: grid;
     grid-template-columns:
         minmax(170px, 0.85fr)
+        minmax(190px, 1fr)
         minmax(170px, 0.85fr)
         minmax(300px, 1.8fr)
         minmax(150px, 0.7fr);
@@ -676,3 +677,11 @@ button:disabled {
         text-align: right;
     }
 }
+
+
+/* BATCH 9 - TOP SCRUBBER + ANIMATION CONTROLS */
+.forecast-scrubber { width:100%; margin:8px 0 10px; padding:10px 12px; background:var(--panel); border:1px solid var(--border); border-radius:7px; }
+.forecast-scrubber input[type="range"] { width:100%; }
+.export-buttons { display:flex; gap:8px; margin-left:auto; }
+#runGifButton, #trendGifButton { white-space:nowrap; }
+@media (max-width:800px) { .export-buttons { width:100%; margin-left:0; } #runGifButton, #trendGifButton { flex:1; } }
