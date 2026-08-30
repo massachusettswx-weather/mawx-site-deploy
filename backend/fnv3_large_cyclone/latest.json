@@ -1,0 +1,8 @@
+{
+  "model": "fnv3_large_cyclone",
+  "display_name": "FNV3-L Cyclones",
+  "members": 1000,
+  "cycle": null,
+  "updated": null,
+  "status": "not_run"
+}

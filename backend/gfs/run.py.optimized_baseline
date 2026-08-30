@@ -1,0 +1,747 @@
+from datetime import (
+    datetime,
+    timezone,
+)
+
+from .download import (
+    download_gfs_hour,
+    resolve_gfs_cycle,
+)
+
+from shared.models import (
+    get_forecast_hours,
+)
+
+from shared.runner import (
+    run_forecast_hour,
+    OPERATIONAL_REGIONS,
+    get_default_products_for_model,
+    get_sequence_products_for_model,
+    get_download_products_for_model,
+)
+
+from shared.publish import (
+    list_cycle_product_objects,
+)
+
+from shared.storage import (
+    build_local_output_cycle_dir,
+    check_working_disk_space,
+    delete_local,
+    remove_empty_directories,
+)
+
+
+
+# ============================================================
+# SETTINGS
+# ============================================================
+
+OVERWRITE_EXISTING = False
+MIN_FREE_DISK_GB = 3.0
+
+LIVE_REGION = "conus"
+
+LIVE_PRODUCTS = (
+    "h5_vort",
+    "mslp",
+    "t2m",
+    "cloud_total",
+    "precip_rate",
+    "mucape",
+)
+
+CONUS_HOURS_PER_PASS = 8
+BACKFILL_CHUNKS_PER_PASS = 1
+
+
+# ============================================================
+# HELPERS
+# ============================================================
+
+def cycle_to_datetime(cycle):
+    if cycle is None:
+        return None
+
+    cycle_time = datetime.fromisoformat(
+        cycle["datetime"]
+    )
+
+    if cycle_time.tzinfo is None:
+        cycle_time = cycle_time.replace(
+            tzinfo=timezone.utc
+        )
+
+    return cycle_time.astimezone(
+        timezone.utc
+    )
+
+
+def _object_key(
+    object_name,
+    *,
+    model,
+    cycle_date,
+    cycle_hour,
+):
+    prefix = (
+        f"products/{model}/"
+        f"{cycle_date}/"
+        f"{int(cycle_hour):02d}/"
+    )
+
+    if not object_name.startswith(prefix):
+        return None
+
+    parts = object_name[len(prefix):].split("/")
+
+    if len(parts) != 3:
+        return None
+
+    product, region, filename = parts
+
+    if (
+        not filename.startswith("f")
+        or
+        not filename.endswith(".png")
+    ):
+        return None
+
+    try:
+        forecast_hour = int(
+            filename[1:-4]
+        )
+    except ValueError:
+        return None
+
+    return (
+        product,
+        region,
+        forecast_hour,
+    )
+
+
+def _load_cloud_inventory(
+    *,
+    cycle_date,
+    cycle_hour,
+):
+    records = list_cycle_product_objects(
+        "gfs",
+        cycle_date,
+        cycle_hour,
+    )
+
+    inventory = set()
+
+    for record in records:
+        key = _object_key(
+            record["name"],
+            model="gfs",
+            cycle_date=cycle_date,
+            cycle_hour=cycle_hour,
+        )
+
+        if key is not None:
+            inventory.add(key)
+
+    return inventory
+
+
+def _missing_products_for_region(
+    *,
+    products,
+    region,
+    forecast_hour,
+    inventory,
+):
+    return [
+        product
+        for product in products
+        if (
+            product,
+            region,
+            int(forecast_hour),
+        ) not in inventory
+    ]
+
+
+def _all_regions_complete_for_product(
+    *,
+    product,
+    regions,
+    forecast_hour,
+    inventory,
+):
+    return all(
+        (
+            product,
+            region,
+            int(forecast_hour),
+        ) in inventory
+        for region in regions
+    )
+
+
+def _cleanup_grib(
+    grib_path,
+    forecast_hour,
+):
+    if grib_path is None:
+        return
+
+    try:
+        if grib_path.exists():
+            size_mb = (
+                grib_path.stat().st_size
+                / 1024
+                / 1024
+            )
+
+            delete_local(grib_path)
+
+            print(
+                f"Deleted raw GFS "
+                f"f{int(forecast_hour):03d} "
+                f"GRIB ({size_mb:.2f} MB)"
+            )
+
+    except Exception as error:
+        print(
+            f"GFS GRIB CLEANUP FAILED "
+            f"f{int(forecast_hour):03d}: "
+            f"{error}"
+        )
+
+
+def _download_available_hour(
+    *,
+    date,
+    cycle_hour,
+    forecast_hour,
+    products,
+):
+    try:
+        path = download_gfs_hour(
+            date,
+            cycle_hour,
+            forecast_hour,
+            products,
+        )
+    except Exception as error:
+        print(
+            f"GFS f{int(forecast_hour):03d}: "
+            f"not usable yet: {error}"
+        )
+        return None
+
+    if path is None:
+        return None
+
+    if (
+        not path.exists()
+        or
+        path.stat().st_size <= 0
+    ):
+        return None
+
+    return path
+
+
+def _run_instantaneous_group(
+    *,
+    date,
+    cycle_hour,
+    cycle_output_dir,
+    forecast_hour,
+    products,
+    regions,
+    download_products,
+):
+    if not products:
+        return {
+            "available": True,
+            "created": 0,
+            "skipped": 0,
+            "failed": 0,
+        }
+
+    check_working_disk_space(
+        MIN_FREE_DISK_GB
+    )
+
+    grib_path = None
+
+    try:
+        grib_path = _download_available_hour(
+            date=date,
+            cycle_hour=cycle_hour,
+            forecast_hour=forecast_hour,
+            products=download_products,
+        )
+
+        if grib_path is None:
+            return {
+                "available": False,
+                "created": 0,
+                "skipped": 0,
+                "failed": 0,
+            }
+
+        result = run_forecast_hour(
+            grib_path=grib_path,
+            model="gfs",
+            step=forecast_hour,
+            output_dir=cycle_output_dir,
+            products=products,
+            regions=regions,
+            overwrite=OVERWRITE_EXISTING,
+        )
+
+        return {
+            "available": True,
+            "created": int(
+                result.get("created", 0)
+            ),
+            "skipped": int(
+                result.get("skipped", 0)
+            ),
+            "failed": int(
+                result.get("failed", 0)
+            ),
+        }
+
+    finally:
+        _cleanup_grib(
+            grib_path,
+            forecast_hour,
+        )
+
+        remove_empty_directories(
+            cycle_output_dir
+        )
+
+        check_working_disk_space(
+            MIN_FREE_DISK_GB
+        )
+
+
+# ============================================================
+# GFS LIVE/CATCH-UP PIPELINE
+# ============================================================
+
+def run_gfs(cycle=None):
+    """
+    Live GFS processing strategy:
+
+    1. Chase the newest upstream hour first for a small set of
+       high-value CONUS products.
+    2. Fill all remaining instantaneous CONUS products for up to
+       CONUS_HOURS_PER_PASS hours.
+    3. Backfill one product/hour across the remaining regions.
+
+    The function returns partial=True so run_backend revisits the same
+    cycle instead of incorrectly marking it complete.
+    """
+
+    print()
+    print("=" * 70)
+    print(
+        "MASSACHUSETTSWX "
+        "NCEP GFS LIVE/CATCH-UP PIPELINE"
+    )
+    print("=" * 70)
+
+    cycle_hour_hint = (
+        int(cycle["hour"])
+        if cycle is not None
+        else None
+    )
+
+    forecast_hours = get_forecast_hours(
+        "gfs",
+        cycle_hour=cycle_hour_hint,
+    )
+
+    instantaneous_products = list(
+        get_default_products_for_model(
+            "gfs"
+        )
+    )
+
+    sequence_products = list(
+        get_sequence_products_for_model(
+            "gfs"
+        )
+    )
+
+    all_download_products = list(
+        get_download_products_for_model(
+            "gfs"
+        )
+    )
+
+    requested_cycle_time = cycle_to_datetime(
+        cycle
+    )
+
+    date, downloaded_cycle_hour = resolve_gfs_cycle(
+        requested_cycle_time
+    )
+
+    cycle_date = date.strftime(
+        "%Y%m%d"
+    )
+
+    cycle_name = (
+        f"{cycle_date}_"
+        f"{downloaded_cycle_hour:02d}z"
+    )
+
+    cycle_output_dir = build_local_output_cycle_dir(
+        model="gfs",
+        cycle_date=cycle_date,
+        cycle_hour=downloaded_cycle_hour,
+    )
+
+    cycle_output_dir.mkdir(
+        parents=True,
+        exist_ok=True,
+    )
+
+    live_products = [
+        product
+        for product in LIVE_PRODUCTS
+        if product in instantaneous_products
+    ]
+
+    secondary_conus_products = [
+        product
+        for product in instantaneous_products
+        if product not in live_products
+    ]
+
+    remaining_regions = [
+        region
+        for region in OPERATIONAL_REGIONS
+        if region != LIVE_REGION
+    ]
+
+    inventory = _load_cloud_inventory(
+        cycle_date=cycle_date,
+        cycle_hour=downloaded_cycle_hour,
+    )
+
+    result = {
+        "created": 0,
+        "skipped": 0,
+        "failed": 0,
+        "partial": True,
+        "cycle": cycle_name,
+        "live_frontier": None,
+        "conus_hours_filled_this_pass": 0,
+        "backfill_chunks_this_pass": 0,
+        "sequence_products_deferred": (
+            sequence_products
+        ),
+    }
+
+    print(f"Cycle: {cycle_name}")
+    print(
+        f"Cloud frames already present: "
+        f"{len(inventory)}"
+    )
+    print(
+        f"Live lane: "
+        f"{', '.join(live_products)} "
+        f"/ {LIVE_REGION}"
+    )
+
+    # --------------------------------------------------------
+    # PASS 1: LIVE FRONTIER
+    # --------------------------------------------------------
+
+    print()
+    print("=" * 70)
+    print("GFS LIVE LANE")
+    print("=" * 70)
+
+    live_frontier = None
+
+    for forecast_hour in forecast_hours:
+        missing = _missing_products_for_region(
+            products=live_products,
+            region=LIVE_REGION,
+            forecast_hour=forecast_hour,
+            inventory=inventory,
+        )
+
+        if not missing:
+            live_frontier = forecast_hour
+            continue
+
+        print()
+        print(
+            f"LIVE f{forecast_hour:03d}: "
+            f"{len(missing)} missing "
+            f"{LIVE_REGION} products"
+        )
+
+        group_result = _run_instantaneous_group(
+            date=date,
+            cycle_hour=downloaded_cycle_hour,
+            cycle_output_dir=cycle_output_dir,
+            forecast_hour=forecast_hour,
+            products=missing,
+            regions=[LIVE_REGION],
+            download_products=missing,
+        )
+
+        if not group_result["available"]:
+            print(
+                f"Reached upstream frontier "
+                f"before f{forecast_hour:03d}."
+            )
+            break
+
+        for key in (
+            "created",
+            "skipped",
+            "failed",
+        ):
+            result[key] += group_result[key]
+
+        for product in missing:
+            inventory.add(
+                (
+                    product,
+                    LIVE_REGION,
+                    int(forecast_hour),
+                )
+            )
+
+        live_frontier = forecast_hour
+
+    result["live_frontier"] = live_frontier
+
+    # --------------------------------------------------------
+    # PASS 2: COMPLETE CONUS IN BOUNDED CHUNKS
+    # --------------------------------------------------------
+
+    print()
+    print("=" * 70)
+    print("GFS CONUS FILL")
+    print("=" * 70)
+
+    conus_hours_done = 0
+
+    for forecast_hour in forecast_hours:
+        if (
+            conus_hours_done
+            >=
+            CONUS_HOURS_PER_PASS
+        ):
+            break
+
+        if (
+            live_frontier is not None
+            and
+            forecast_hour > live_frontier
+        ):
+            break
+
+        missing = _missing_products_for_region(
+            products=secondary_conus_products,
+            region=LIVE_REGION,
+            forecast_hour=forecast_hour,
+            inventory=inventory,
+        )
+
+        if not missing:
+            continue
+
+        print()
+        print(
+            f"CONUS FILL "
+            f"f{forecast_hour:03d}: "
+            f"{len(missing)} products"
+        )
+
+        group_result = _run_instantaneous_group(
+            date=date,
+            cycle_hour=downloaded_cycle_hour,
+            cycle_output_dir=cycle_output_dir,
+            forecast_hour=forecast_hour,
+            products=missing,
+            regions=[LIVE_REGION],
+            download_products=all_download_products,
+        )
+
+        if not group_result["available"]:
+            break
+
+        for key in (
+            "created",
+            "skipped",
+            "failed",
+        ):
+            result[key] += group_result[key]
+
+        for product in missing:
+            inventory.add(
+                (
+                    product,
+                    LIVE_REGION,
+                    int(forecast_hour),
+                )
+            )
+
+        conus_hours_done += 1
+
+    result[
+        "conus_hours_filled_this_pass"
+    ] = conus_hours_done
+
+    # --------------------------------------------------------
+    # PASS 3: REGIONAL BACKFILL
+    # --------------------------------------------------------
+
+    print()
+    print("=" * 70)
+    print("GFS REGIONAL BACKFILL")
+    print("=" * 70)
+
+    backfill_chunks = 0
+
+    for forecast_hour in forecast_hours:
+        if (
+            backfill_chunks
+            >=
+            BACKFILL_CHUNKS_PER_PASS
+        ):
+            break
+
+        if (
+            live_frontier is not None
+            and
+            forecast_hour > live_frontier
+        ):
+            break
+
+        for product in instantaneous_products:
+            if (
+                backfill_chunks
+                >=
+                BACKFILL_CHUNKS_PER_PASS
+            ):
+                break
+
+            if _all_regions_complete_for_product(
+                product=product,
+                regions=remaining_regions,
+                forecast_hour=forecast_hour,
+                inventory=inventory,
+            ):
+                continue
+
+            missing_regions = [
+                region
+                for region in remaining_regions
+                if (
+                    product,
+                    region,
+                    int(forecast_hour),
+                ) not in inventory
+            ]
+
+            if not missing_regions:
+                continue
+
+            print()
+            print(
+                f"BACKFILL "
+                f"f{forecast_hour:03d} "
+                f"{product}: "
+                f"{len(missing_regions)} regions"
+            )
+
+            group_result = _run_instantaneous_group(
+                date=date,
+                cycle_hour=downloaded_cycle_hour,
+                cycle_output_dir=cycle_output_dir,
+                forecast_hour=forecast_hour,
+                products=[product],
+                regions=missing_regions,
+                download_products=[product],
+            )
+
+            if not group_result["available"]:
+                break
+
+            for key in (
+                "created",
+                "skipped",
+                "failed",
+            ):
+                result[key] += group_result[key]
+
+            for region in missing_regions:
+                inventory.add(
+                    (
+                        product,
+                        region,
+                        int(forecast_hour),
+                    )
+                )
+
+            backfill_chunks += 1
+
+    result[
+        "backfill_chunks_this_pass"
+    ] = backfill_chunks
+
+    print()
+    print("=" * 70)
+    print("GFS LIVE PASS COMPLETE")
+    print("=" * 70)
+    print(
+        "Live frontier: "
+        +
+        (
+            "none"
+            if live_frontier is None
+            else
+            f"f{live_frontier:03d}"
+        )
+    )
+    print(
+        f"CONUS hours filled this pass: "
+        f"{conus_hours_done}"
+    )
+    print(
+        f"Regional chunks filled this pass: "
+        f"{backfill_chunks}"
+    )
+    print(
+        f"Maps created: "
+        f"{result['created']}"
+    )
+    print(
+        f"Failures: "
+        f"{result['failed']}"
+    )
+    print(
+        "Cycle remains PARTIAL so the watcher "
+        "will revisit it."
+    )
+    print("=" * 70)
+
+    return result
+
+
+# ============================================================
+# ENTRY POINT
+# ============================================================
+
+if __name__ == "__main__":
+    run_gfs()

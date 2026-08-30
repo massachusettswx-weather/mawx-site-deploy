@@ -1,0 +1,12 @@
+steps:
+  - name: "gcr.io/cloud-builders/docker"
+    args:
+      - "build"
+      - "-f"
+      - "Dockerfile.watcher"
+      - "-t"
+      - "us-east1-docker.pkg.dev/project-166f07ba-7a61-4fa9-ae7/weather-jobs/model-watcher:latest"
+      - "."
+
+images:
+  - "us-east1-docker.pkg.dev/project-166f07ba-7a61-4fa9-ae7/weather-jobs/model-watcher:latest"

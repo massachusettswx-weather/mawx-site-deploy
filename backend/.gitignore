@@ -1,0 +1,66 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Virtual environments
+.venv/
+venv/
+env/
+
+# Secrets / env
+.env
+.env.*
+*.pem
+*.key
+credentials.json
+service-account*.json
+
+# Local / temporary data
+tmp/
+temp/
+cache/
+.cache/
+*.tmp
+*.log
+
+# Weather/model data
+*.grib
+*.grib2
+*.grb
+*.grb2
+*.nc
+*.nc4
+*.zarr
+*.h5
+*.hdf5
+*.npy
+*.npz
+
+# Generated outputs
+output/
+outputs/
+products/
+rendered/
+frames/
+*.gif
+
+# OS/editor
+.DS_Store
+.idea/
+.vscode/
+
+# Google Cloud local config
+.gcloud/
+
+# Local backup snapshots / patch history
+*.before_*
+
+# One-off migration / patch scripts
+masswx_batch*.py
+masswx_map_completeness_batch5.py
+masswx_optimization_batch*.py

@@ -1,0 +1,10 @@
+
+cartopy
+cfgrib
+eccodes
+ecmwf-opendata
+google-cloud-storage
+matplotlib
+numpy
+requests
+xarray

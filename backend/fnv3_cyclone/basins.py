@@ -1,0 +1,18 @@
+ACTIVE_BASINS = [
+    "atlantic",
+    "caribbean",
+    "gulf",
+    "epac",
+    "cpac",
+    "wpac",
+    "north_indian",
+    "arabian_sea",
+    "bay_of_bengal",
+    "south_indian",
+    "australia",
+    "sw_pacific",
+    "se_pacific",
+    "north_tropics",
+    "south_tropics",
+    "global_tropics",
+]

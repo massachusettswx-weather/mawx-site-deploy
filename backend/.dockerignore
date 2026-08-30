@@ -1,0 +1,14 @@
+__pycache__
+*.pyc
+*.pyo
+*.log
+*.pid
+*.png
+*.grib
+*.grib2
+*.nc
+.git
+.gitignore
+data
+output
+output_multi
