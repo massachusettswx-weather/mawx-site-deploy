@@ -1,4 +1,9 @@
 const MODEL_CONFIG = {
+    weathernext3_mean: {
+        name: "WeatherNext 3 · Ensemble Mean",
+        latestUrls: ["../metadata/weathernext3_mean/latest.json"],
+        manifestType: "direct",
+    },
     weathernext2_mean: {
         name: "WeatherNext 2",
 
@@ -307,7 +312,8 @@ const REGION_GROUPS = [
 ];
 
 
-const MODEL_ORDER = [
+const MODEL_ORDER = window.MASSWX_MODELS || [
+    "weathernext3_mean",
     "weathernext2_mean",
     "gfs",
     "ifs",
@@ -316,7 +322,7 @@ const MODEL_ORDER = [
 
 
 const state = {
-    modelId: "gfs",
+    modelId: "weathernext3_mean",
 
     manifest: null,
 
@@ -856,6 +862,9 @@ function formatRegionName(
 function formatProductName(
     product
 ) {
+    const label = state.manifest?.product_names?.[product];
+    if (label) return label;
+
 
     return (
         String(
